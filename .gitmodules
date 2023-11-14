@@ -1,0 +1,3 @@
+[submodule "liblava"]
+	path = liblava
+	url = https://github.com/liblava/liblava.git
