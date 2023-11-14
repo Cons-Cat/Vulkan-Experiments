@@ -2,6 +2,11 @@
 
 using namespace lava;
 
+struct gpu_entity {
+    glm::vec3 world_position;
+    glm::quat rotation;
+};
+
 auto main(int argc, char* argv[]) -> int {
     engine app("game", {argc, argv});
 
@@ -10,21 +15,35 @@ auto main(int argc, char* argv[]) -> int {
     }
 
     // initialize camera
-    app.camera.position = v3(0.f, -2.f, 4.f);
-    app.camera.rotation = v3(-25.f, 0.f, 0.f);  // degrees
+    glm::mat4x4 view = glm::identity<glm::mat4x4>();
+    glm::vec3 pos = {2, 2, 2};
+    // // view = glm::translate(view, pos);
+    // view = glm::lookAt(pos, {0, 0, 0}, {0, 1, 0});
+    glm::mat4x4 proj = glm::identity<glm::mat4x4>();
 
-    // mat4 world_matrix = glm::identity<mat4>();
-    std::byte bindless_data[4];
+    view = glm::lookAt(pos, {0, 0, 0}, {0, 0, 1});
+    proj = glm::perspective(glm::radians(45.f),
+                            static_cast<float>(app.target->get_size().x) /
+                                static_cast<float>(app.target->get_size().y),
+                            0.1f, 10.0f);
+    proj[1][1] *= -1;
+
+    glm::mat4 cameras[2]{view, proj};
+
+    gpu_entity bindless_data[1] = {
+        {{0, 0, 0}, {1, 0, 0, 1}}
+    };
 
     // all shapes will share the same rotation value
     buffer bindless_buffer;
-    if (!bindless_buffer.create_mapped(app.device, bindless_data,
-                                       sizeof(bindless_data),
-                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)) {
+    if (!bindless_buffer.create_mapped(
+            app.device, bindless_data,
+            std::size(bindless_data) * sizeof(gpu_entity),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)) {
         return error::create_failed;
     }
 
-    mesh::ptr triangle = create_mesh(app.device, mesh_type::triangle);
+    mesh::ptr mesh = create_mesh(app.device, mesh_type::cube);
 
     descriptor::ptr descriptor;
     descriptor::pool::ptr descriptor_pool;
@@ -83,13 +102,11 @@ auto main(int argc, char* argv[]) -> int {
             return false;
         }
 
-        glm::mat4 cameras[2]{app.camera.get_view(),
-                             app.camera.get_projection()};
-
         layout = pipeline_layout::make();
 
         layout->add_push_constant_range(
-            {VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(cameras)});
+            {VK_SHADER_STAGE_VERTEX_BIT, 0,
+             std::size(cameras) * sizeof(glm::mat4x4)});
         layout->add(descriptor);
 
         if (!layout->create(app.device)) {
@@ -121,11 +138,13 @@ auto main(int argc, char* argv[]) -> int {
         render_pass->add_front(pipeline);
 
         pipeline->on_process = [&](VkCommandBuffer cmd_buf) {
-            app.device->call().vkCmdPushConstants(cmd_buf, layout->get(),
-                                                  VK_SHADER_STAGE_VERTEX_BIT, 0,
-                                                  sizeof(cameras), cameras);
+            app.device->call().vkCmdPushConstants(
+                cmd_buf, layout->get(), VK_SHADER_STAGE_VERTEX_BIT, 0,
+                std::size(cameras) * sizeof(glm::mat4x4), cameras);
 
             layout->bind(cmd_buf, descriptor_set);
+
+            mesh->bind_draw(cmd_buf);
             return true;
         };
 
@@ -133,30 +152,29 @@ auto main(int argc, char* argv[]) -> int {
     };
 
     app.on_destroy = [&]() {
-        // descriptor->free(descriptor_set, descriptor_pool->get());
+        descriptor->free(descriptor_set, descriptor_pool->get());
 
-        // descriptor_pool->destroy();
-        // descriptor->destroy();
+        descriptor_pool->destroy();
+        descriptor->destroy();
 
-        // pipeline->destroy();
-        // layout->destroy();
+        pipeline->destroy();
+        layout->destroy();
     };
 
-    app.on_update = [&](delta dt) {
-        // rotation_vector += v3{0, 1.f, 0} * dt;
-        // memcpy(as_ptr(rotation_buffer.get_mapped_data()),
-        //&rotation_vector, sizeof(rotation_vector));
-
-        if (app.camera.activated()) {
-            app.camera.update_view(to_dt(app.run_time.delta),
-                                   app.input.get_mouse_position());
-        }
-
+    app.on_update = [&](delta dt) -> bool {
         return run_continue;
     };
 
     app.add_run_end([&]() {
-        triangle->destroy();
+        mesh->destroy();
+    });
+
+    app.input.key.listeners.add([&](key_event::ref event) -> bool {
+        if (event.pressed(key::escape)) {
+            return app.shut_down();
+        }
+
+        return input_done;
     });
 
     return app.run();

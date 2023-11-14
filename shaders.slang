@@ -1,3 +1,5 @@
+import quaternion;
+
 struct vertex_t {
     float3 position : POSITION;
     float4 color    : COLOR;
@@ -10,7 +12,7 @@ struct vertex_output_t {
     float4 color    : COLOR;
     float2 uv       : UV;
     float3 normal   : NORMAL;
-};
+}
 
 struct camera_consts {
     float4x4 view;
@@ -19,6 +21,16 @@ struct camera_consts {
 
 [vk::push_constant]
 camera_consts camera;
+
+struct entity {
+    float3 world_position;
+    quaternion rotation;
+};
+
+[vk::binding(0, 0)]
+StructuredBuffer<entity> buffer;
+
+static constexpr float4x4 identity = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 
 [shader("vertex")]
 vertex_output_t vertex_main(vertex_t vertex) {
@@ -32,8 +44,10 @@ vertex_output_t vertex_main(vertex_t vertex) {
     vertex_output_t output;
     output.normal = normal;
     output.uv = uv;
-    output.color=color;
-    output.position = mul(view_proj, float4(position, 1));
+//    output.color=color;
+    output.position = mul(view_proj, mul(identity, float4(position, 1)));
+    output.color = float4(1,1,1, 1);
+//    output.position = float4(position, 1);
 
     return output;
 }
