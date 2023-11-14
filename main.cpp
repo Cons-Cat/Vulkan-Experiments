@@ -2,9 +2,10 @@
 
 using namespace lava;
 
+// ABI compatible with `entity` defined in `shaders.slang`
 struct gpu_entity {
     glm::vec3 world_position;
-    glm::quat rotation;
+    alignas(4) glm::quat rotation;
 };
 
 auto main(int argc, char* argv[]) -> int {
@@ -15,18 +16,13 @@ auto main(int argc, char* argv[]) -> int {
     }
 
     // initialize camera
-    glm::mat4x4 view = glm::identity<glm::mat4x4>();
-    glm::vec3 pos = {2, 2, 2};
-    // // view = glm::translate(view, pos);
-    // view = glm::lookAt(pos, {0, 0, 0}, {0, 1, 0});
-    glm::mat4x4 proj = glm::identity<glm::mat4x4>();
-
-    view = glm::lookAt(pos, {0, 0, 0}, {0, 0, 1});
-    proj = glm::perspective(glm::radians(45.f),
-                            static_cast<float>(app.target->get_size().x) /
-                                static_cast<float>(app.target->get_size().y),
-                            0.1f, 10.0f);
-    proj[1][1] *= -1;
+    glm::vec3 pos = {0, -4, 4};
+    auto view = glm::lookAt(pos, {0, 0, 0}, {0, 0, 1});
+    auto proj =
+        glm::perspective(glm::radians(45.f),
+                         static_cast<float>(app.target->get_size().x) /
+                             static_cast<float>(app.target->get_size().y),
+                         0.1f, 10.0f);
 
     glm::mat4 cameras[2]{view, proj};
 
@@ -51,6 +47,29 @@ auto main(int argc, char* argv[]) -> int {
 
     render_pipeline::ptr pipeline;
     pipeline_layout::ptr layout;
+
+    // Add key events before Vulkan events.
+    constexpr float speed = 0.1;
+    app.input.key.listeners.add([&](key_event::ref event) -> bool {
+        if (event.pressed(key::left)) {
+            bindless_data[0].world_position.x -= speed;
+        }
+        if (event.pressed(key::right)) {
+            bindless_data[0].world_position.x += speed;
+        }
+        if (event.pressed(key::down)) {
+            bindless_data[0].world_position.z += speed;
+        }
+        if (event.pressed(key::up)) {
+            bindless_data[0].world_position.z -= speed;
+        }
+
+        if (event.pressed(key::escape)) {
+            return app.shut_down();
+        }
+
+        return input_done;
+    });
 
     app.on_create = [&]() {
         pipeline = render_pipeline::make(app.device, app.pipeline_cache);
@@ -140,7 +159,7 @@ auto main(int argc, char* argv[]) -> int {
         pipeline->on_process = [&](VkCommandBuffer cmd_buf) {
             app.device->call().vkCmdPushConstants(
                 cmd_buf, layout->get(), VK_SHADER_STAGE_VERTEX_BIT, 0,
-                std::size(cameras) * sizeof(glm::mat4x4), cameras);
+                std::size(cameras) * sizeof(glm::mat4x4), std::data(cameras));
 
             layout->bind(cmd_buf, descriptor_set);
 
@@ -162,19 +181,14 @@ auto main(int argc, char* argv[]) -> int {
     };
 
     app.on_update = [&](delta dt) -> bool {
+        std::memcpy(bindless_buffer.get_mapped_data(), std::data(bindless_data),
+                    std::size(bindless_data) * sizeof(gpu_entity));
+
         return run_continue;
     };
 
     app.add_run_end([&]() {
         mesh->destroy();
-    });
-
-    app.input.key.listeners.add([&](key_event::ref event) -> bool {
-        if (event.pressed(key::escape)) {
-            return app.shut_down();
-        }
-
-        return input_done;
     });
 
     return app.run();

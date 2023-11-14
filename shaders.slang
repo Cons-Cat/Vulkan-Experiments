@@ -38,16 +38,22 @@ vertex_output_t vertex_main(vertex_t vertex) {
     float3 normal = vertex.normal;
     float2 uv = vertex.uv;
     float4 color = vertex.color;
+    float3 world_position = buffer[0].world_position;
 
     float4x4 view_proj = mul(camera.projection, camera.view);
+    float4x4 translation = {
+        {1,0,0,world_position.x},
+        {0,1,0,world_position.y},
+        {0,0,1,world_position.z},
+        {0,0,0,1}
+    };
 
     vertex_output_t output;
     output.normal = normal;
     output.uv = uv;
 //    output.color=color;
-    output.position = mul(view_proj, mul(identity, float4(position, 1)));
-    output.color = float4(1,1,1, 1);
-//    output.position = float4(position, 1);
+    output.position = mul(view_proj, mul(translation, float4(position, 1)));
+    output.color = float4(1,1,1,1);
 
     return output;
 }
