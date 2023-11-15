@@ -1,12 +1,20 @@
 #include <liblava/lava.hpp>  // IWYU pragma: keep
 
-using namespace lava;
+#include "types.hpp"
 
-// ABI compatible with `entity` defined in `shaders.slang`
-struct gpu_entity {
-    glm::vec3 world_position;
-    alignas(4) glm::quat rotation;
-};
+void init_pipeline(lava::render_pipeline::ptr& pipeline, lava::app& app);
+
+void add_shader_to(lava::render_pipeline::ptr& pipeline,
+                   std::filesystem::path shader_path,
+                   VkShaderStageFlagBits stage);
+
+void add_vertex_shader_to(lava::render_pipeline::ptr& pipeline,
+                          std::filesystem::path shader_path);
+
+void add_fragment_shader_to(lava::render_pipeline::ptr& pipeline,
+                            std::filesystem::path shader_path);
+
+using namespace lava;
 
 auto main(int argc, char* argv[]) -> int {
     engine app("game", {argc, argv});
@@ -72,37 +80,10 @@ auto main(int argc, char* argv[]) -> int {
     });
 
     app.on_create = [&]() {
-        pipeline = render_pipeline::make(app.device, app.pipeline_cache);
-        pipeline->add_color_blend_attachment();
-        pipeline->set_depth_test_and_write();
-        pipeline->set_depth_compare_op(VK_COMPARE_OP_LESS_OR_EQUAL);
+        init_pipeline(pipeline, app);
 
-        // all shapes use the same simple shaders
-        std::vector<char> shader_source;
-        read_file(shader_source, "/home/conscat/game/vertex.spirv");
-        if (!pipeline->add_shader_stage(
-                cdata(shader_source.data(), shader_source.size()),
-                VK_SHADER_STAGE_VERTEX_BIT)) {
-            return false;
-        }
-
-        read_file(shader_source, "/home/conscat/game/fragment.spirv");
-        if (!pipeline->add_shader_stage(
-                cdata(shader_source.data(), shader_source.size()),
-                VK_SHADER_STAGE_FRAGMENT_BIT)) {
-            return false;
-        }
-
-        pipeline->set_vertex_input_binding(
-            {0, sizeof(vertex), VK_VERTEX_INPUT_RATE_VERTEX});
-
-        // only send position and color to shaders for this demo
-        pipeline->set_vertex_input_attributes({
-            {0, 0,    VK_FORMAT_R32G32B32_SFLOAT, offsetof(vertex, position)},
-            {1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(vertex,    color)},
-            {2, 0,       VK_FORMAT_R32G32_SFLOAT, offsetof(vertex,       uv)},
-            {3, 0,    VK_FORMAT_R32G32B32_SFLOAT, offsetof(vertex,   normal)},
-        });
+        add_vertex_shader_to(pipeline, "/home/conscat/game/vertex.spirv");
+        add_fragment_shader_to(pipeline, "/home/conscat/game/fragment.spirv");
 
         // descriptor sets must be made to transfer the shapes' world matrix
         // and the camera's view matrix to the physical device

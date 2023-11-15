@@ -5,7 +5,8 @@ project(game LANGUAGES CXX)
 add_executable(game)
 set_property(TARGET game PROPERTY CXX_STANDARD 23)
 target_sources(game PRIVATE
-  main.cpp)
+  main.cpp utils.cpp)
+target_include_directories(game PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_compile_options(game PRIVATE
   -mavx2
