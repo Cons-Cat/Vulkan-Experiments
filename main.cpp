@@ -30,10 +30,12 @@ auto main(int argc, char* argv[]) -> int {
         return error::not_ready;
     }
 
-    window window;
+    lava::window window("game");
     if (!window.create()) {
         return error::create_failed;
     }
+    window.set_resizable(false);
+    window.set_size(480, 320);
 
     input input;
     window.assign(&input);
@@ -194,6 +196,11 @@ auto main(int argc, char* argv[]) -> int {
 
         render_pass->process(cmd_buf, block.get_current_frame());
     });
+
+    window.on_resize = [&](ui32 new_width, ui32 new_height) {
+        // return render_target->resize({480, 320});
+        return render_target->resize({new_width, new_height});
+    };
 
     frame.add_run([&](id::ref run_id) {
         input.handle_events();
