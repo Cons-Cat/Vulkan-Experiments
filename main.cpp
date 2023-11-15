@@ -24,6 +24,9 @@ inline gpu_entity bindless_data[1] = {
     {{0, 0, 0}, {1, 0, 0, 1}}
 };
 
+inline constexpr ui16 game_width = 480;
+inline constexpr ui16 game_height = 320;
+
 auto main(int argc, char* argv[]) -> int {
     frame frame({argc, argv});
     if (!frame.ready()) {
@@ -35,7 +38,7 @@ auto main(int argc, char* argv[]) -> int {
         return error::create_failed;
     }
     window.set_resizable(false);
-    window.set_size(480, 320);
+    window.set_size(game_width, game_height);
 
     input input;
     window.assign(&input);

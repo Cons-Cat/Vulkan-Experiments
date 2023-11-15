@@ -22,38 +22,38 @@ struct camera_consts {
 [vk::push_constant]
 camera_consts camera;
 
-struct entity {
-    float3 world_position;
+// Align to 32 bytes.
+struct entity_t {
+    float3 world_transform;
     quaternion rotation;
 };
 
 [vk::binding(0, 0)]
-StructuredBuffer<entity> buffer;
+ByteAddressBuffer buffer;
 
 static constexpr float4x4 identity = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 
 [shader("vertex")]
 vertex_output_t vertex_main(vertex_t vertex) {
-    float3 position = vertex.position;
+    float3 local_position = vertex.position;
     float3 normal = vertex.normal;
     float2 uv = vertex.uv;
     float4 color = vertex.color;
-    float3 world_position = buffer[0].world_position;
+    float3 world_transform = buffer.Load<entity_t>(0).world_transform;
 
     float4x4 view_proj = mul(camera.projection, camera.view);
     float4x4 translation = {
-        {1,0,0,world_position.x},
-        {0,1,0,world_position.y},
-        {0,0,1,world_position.z},
+        {1,0,0,world_transform.x},
+        {0,1,0,world_transform.y},
+        {0,0,1,world_transform.z},
         {0,0,0,1}
     };
 
     vertex_output_t output;
     output.normal = normal;
     output.uv = uv;
-//    output.color=color;
-    output.position = mul(view_proj, mul(translation, float4(position, 1)));
-    output.color = float4(1,1,1,1);
+    output.color = color;
+    output.position = mul(view_proj, mul(translation, float4(local_position, 1)));
 
     return output;
 }
