@@ -6,9 +6,9 @@
 #include <liblava/resource/primitive.hpp>
 
 // ABI compatible with `entity` defined in `shaders.slang`
-struct gpu_entity {
+struct alignas(32) gpu_entity {
     glm::vec3 world_position;
-    glm::quat rotation;
+    alignas(4) glm::quat rotation;
 };
 
 struct vertex : lava::vertex {
@@ -20,7 +20,7 @@ using cameras = glm::mat4[2];
 inline cameras viewproj;
 
 inline gpu_entity bindless_data[2] = {
-    {},
+    {{0, 0, 0}, {1, 0, 0, 1}},
     {{0, 0, 0}, {1, 0, 0, 1}},
 };
 

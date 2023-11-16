@@ -130,16 +130,7 @@ auto main(int argc, char* argv[]) -> int {
                           std::begin(mesh->get_indices()),
                           std::end(mesh->get_indices()));
 
-    // Push data for outlines too.
-    render_vertices.insert(std::end(render_vertices),
-                           std::begin(mesh->get_vertices()),
-                           std::end(mesh->get_vertices()));
-
-    render_indices.insert(std::end(render_indices),
-                          std::begin(mesh->get_indices()),
-                          std::end(mesh->get_indices()));
-
-    for (auto& v : mesh->get_vertices()) {
+    for (auto& v : render_vertices) {
         v.id = 1;
     }
 

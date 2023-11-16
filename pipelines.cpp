@@ -27,14 +27,14 @@ mypipeline make_color_pipeline(lava::device_p& device,
         .blendEnable = false,
         .colorWriteMask = VK_COLOR_COMPONENT_R_BIT,
     };
-    out.pipeline->add_color_blend_attachment(id_attachment);  // ID
+    out.pipeline->add_color_blend_attachment(id_attachment);  // Entity ID
 
     out.pipeline->set_depth_test_and_write();
     out.pipeline->set_depth_compare_op(VK_COMPARE_OP_LESS_OR_EQUAL);
 
     out.pipeline->set_vertex_input_binding({
         .binding = 0u,
-        .stride = sizeof(decltype(render_vertices)::value_type),
+        .stride = sizeof(vertex),
         .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
     });
 

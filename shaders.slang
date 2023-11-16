@@ -26,12 +26,12 @@ camera_consts camera;
 
 // Align to 32 bytes.
 struct entity_t {
-    float3 world_transform;
-    quaternion rotation;
+    float4 world_transform;
+    float4 rotation; // make quaternion
 };
 
 [vk::binding(0, 0)]
-ByteAddressBuffer buffer;
+StructuredBuffer<entity_t> buffer;
 
 static constexpr float4x4 identity = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 
@@ -41,8 +41,8 @@ vertex_output_t vertex_main(vertex_t vertex) {
     float3 normal = vertex.normal;
     float2 uv = vertex.uv;
     float4 color = vertex.color;
-    entity_t entity = buffer.Load<entity_t>(vertex.id);
-    float3 world_transform = entity.world_transform;
+    entity_t entity = buffer.Load(vertex.id);
+    float4 world_transform = entity.world_transform;
 
     float4x4 view_proj = mul(camera.projection, camera.view);
     float4x4 translation = {
