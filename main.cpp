@@ -7,8 +7,7 @@ void add_shader_to(lava::render_pipeline::ptr& pipeline,
                    std::filesystem::path shader_path,
                    VkShaderStageFlagBits stage);
 
-void init_render_pass(lava::render_pass::ptr&, lava::image::ptr&,
-                      lava::render_target::ptr&);
+lava::render_pass::ptr init_color_pass();
 
 // Reserve two screen-sized textures.
 inline std::vector<std::byte> textures_data(game_width* game_height * 2);
@@ -55,61 +54,78 @@ auto main(int argc, char* argv[]) -> int {
         param.features.independentBlend = VK_TRUE;
     };
 
-    lava::device_p device = frame.platform.create_device(0);
+    device = frame.platform.create_device(0);
     if (!device) {
         /// return error::create_failed;
     }
 
-    lava::render_target::ptr render_target = create_target(&window, device);
-    if (!render_target) {
-        // return error::create_failed;
-    }
+    lava::render_target::ptr final_render_target =
+        create_target(&window, device);
 
-    lava::forward_shading color_shading;
+    lava::image::ptr color_image =
+        lava::image::make(VK_FORMAT_R32G32B32A32_SFLOAT);
+    color_image->set_usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+    color_image->create(device, {game_width, game_height});
 
-    // The render pass already has color and depth attachments.
-    lava::attachment::ptr id_attachment =
-        lava::attachment::make(VK_FORMAT_R32_UINT);
-    id_attachment->set_op(VK_ATTACHMENT_LOAD_OP_CLEAR,
-                          VK_ATTACHMENT_STORE_OP_STORE);
-    id_attachment->set_stencil_op(VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-                                  VK_ATTACHMENT_STORE_OP_DONT_CARE);
-    id_attachment->set_layouts(VK_IMAGE_LAYOUT_UNDEFINED,
-                               VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-    color_shading.extra_color_attachments.push_back(id_attachment);
+    auto depth_format =
+        lava::find_supported_depth_format(device->get_vk_physical_device());
+    lava::image::ptr depth_image = lava::image::make(depth_format.value());
+    depth_image->set_usage(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+                           VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+    depth_image->set_layout(VK_IMAGE_LAYOUT_UNDEFINED);
+    depth_image->set_aspect_mask(VK_IMAGE_ASPECT_DEPTH_BIT |
+                                 VK_IMAGE_ASPECT_STENCIL_BIT);
+    depth_image->set_component();
+    depth_image->create(device, {game_width, game_height});
 
-    lava::image::ptr image = lava::image::make(VK_FORMAT_R32_UINT);
-    image->set_usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+    lava::image::ptr entity_id_image = lava::image::make(VK_FORMAT_R32_UINT);
+    entity_id_image->set_usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+    entity_id_image->create(device, {game_width, game_height});
 
-    image->create(device, {game_width, game_height});
-    color_shading.extra_image_views.push_back(image);
+    lava::render_pass::ptr color_render_pass = init_color_pass();
 
-    if (!color_shading.create(render_target)) {
-        // return error::create_failed;
-    }
-
-    lava::render_pass::ptr render_pass = color_shading.get_pass();
-
-    lava::ui32 frame_count = render_target->get_frame_count();
-
+    lava::ui32 frame_count = final_render_target->get_frame_count();
     lava::block block;
     if (!block.create(device, frame_count, device->graphics_queue().family)) {
         // return error::create_failed;
     }
 
+    final_render_target->on_create_attachments = [&] -> lava::VkAttachments {
+        lava::VkAttachments result;
+
+        if (!depth_image->create(device, final_render_target->get_size())) {
+            return {};
+        }
+
+        for (auto& backbuffer : final_render_target->get_backbuffers()) {
+            lava::VkImageViews attachments;
+
+            attachments.push_back(backbuffer->get_view());
+            attachments.push_back(depth_image->get_view());
+            attachments.push_back(entity_id_image->get_view());
+
+            result.push_back(attachments);
+        }
+
+        return result;
+    };
+
+    final_render_target->add_callback(
+        &color_render_pass->get_target_callback());
+
     lava::renderer renderer;
-    if (!renderer.create(render_target->get_swapchain())) {
+    if (!renderer.create(final_render_target->get_swapchain())) {
         // return error::create_failed;
     }
 
     // initialize camera
     glm::vec3 pos = {0, -4, 4};
     viewproj[0] = glm::lookAt(pos, {0, 0, 0}, {0, 0, 1});
-    viewproj[1] =
-        glm::perspective(glm::radians(45.f),
-                         static_cast<float>(render_target->get_size().x) /
-                             static_cast<float>(render_target->get_size().y),
-                         0.1f, 10.0f);
+    viewproj[1] = glm::perspective(
+        glm::radians(45.f),
+        static_cast<float>(final_render_target->get_size().x) /
+            static_cast<float>(final_render_target->get_size().y),
+        0.1f, 10.0f);
 
     // all shapes will share the same rotation value
     lava::buffer bindless_buffer;
@@ -169,8 +185,6 @@ auto main(int argc, char* argv[]) -> int {
 
     descriptor_set = bindless_descriptor->allocate(descriptor_pool->get());
 
-    render_pass->set_clear_color({0, 0, 0});
-
     VkWriteDescriptorSet const write_bindless_descriptor_set{
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .dstSet = descriptor_set,
@@ -185,20 +199,16 @@ auto main(int argc, char* argv[]) -> int {
     });
 
     mypipeline color_pipeline = make_color_pipeline(
-        device, descriptor_set, bindless_descriptor, render_pass);
-    // push this render pass to the pipeline
-    render_pass->add_front(color_pipeline.pipeline);
+        descriptor_set, bindless_descriptor, color_render_pass);
+    // push this render color_render_pass to the pipeline
+    color_render_pass->add_front(color_pipeline.pipeline, 0);
 
     block.add_command([&](VkCommandBuffer cmd_buf) {
         std::memcpy(bindless_buffer.get_mapped_data(), std::data(bindless_data),
                     std::size(bindless_data) * sizeof(gpu_entity));
 
-        render_pass->process(cmd_buf, block.get_current_frame());
+        color_render_pass->process(cmd_buf, block.get_current_frame());
     });
-
-    window.on_resize = [&](uint32_t new_width, uint32_t new_height) {
-        return render_target->resize({new_width, new_height});
-    };
 
     frame.add_run([&](lava::id::ref run_id) {
         input.handle_events();
@@ -233,7 +243,7 @@ auto main(int argc, char* argv[]) -> int {
     });
 
     frame.add_run_end([&]() {
-        image->destroy();
+        entity_id_image->destroy();
 
         vertices_buffer->destroy();
         indices_buffer->destroy();
@@ -244,10 +254,11 @@ auto main(int argc, char* argv[]) -> int {
         color_pipeline.destroy();
 
         block.destroy();
-        color_shading.destroy();
+        // color_shading.destroy();
 
+        color_render_pass->destroy();
         renderer.destroy();
-        render_target->destroy();
+        final_render_target->destroy();
     });
 
     return frame.run();

@@ -14,8 +14,7 @@ void add_vertex_shader_to(lava::render_pipeline::ptr& pipeline,
 void add_fragment_shader_to(lava::render_pipeline::ptr& pipeline,
                             std::filesystem::path shader_path);
 
-mypipeline make_color_pipeline(lava::device_p& device,
-                               VkDescriptorSet& descriptor_set,
+mypipeline make_color_pipeline(VkDescriptorSet& descriptor_set,
                                lava::descriptor::ptr& descriptor,
                                lava::render_pass::ptr& render_pass) {
     mypipeline out;
@@ -83,6 +82,45 @@ mypipeline make_color_pipeline(lava::device_p& device,
                              VK_INDEX_TYPE_UINT32);
 
         vkCmdDrawIndexed(cmd_buf, render_indices.size(), 1, 0, 0, 0);
+    };
+
+    return out;
+}
+
+mypipeline make_composite_pipeline(lava::render_pass::ptr& render_pass) {
+    mypipeline out;
+
+    out.pipeline = lava::render_pipeline::make(device);
+    out.pipeline->add_color_blend_attachment();  // Color
+
+    VkPipelineColorBlendAttachmentState id_attachment{
+        .blendEnable = false,
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT,
+    };
+    out.pipeline->add_color_blend_attachment(id_attachment);  // Entity ID
+
+    out.pipeline->set_depth_test_and_write();
+    out.pipeline->set_depth_compare_op(VK_COMPARE_OP_ALWAYS);
+
+    add_vertex_shader_to(out.pipeline,
+                         "/home/conscat/game/composite_vertex.spirv");
+    add_fragment_shader_to(out.pipeline,
+                           "/home/conscat/game/composite_fragment.spirv");
+
+    out.layout = lava::pipeline_layout::make();
+
+    out.pipeline->set_layout(out.layout);
+
+    if (!out.layout->create(device)) {
+        //        return false;
+    }
+
+    if (!out.pipeline->create(render_pass->get())) {
+        // return false;
+    }
+
+    out.pipeline->on_process = [&](VkCommandBuffer cmd_buf) {
+        vkCmdDraw(cmd_buf, 3, 1, 0, 0);
     };
 
     return out;

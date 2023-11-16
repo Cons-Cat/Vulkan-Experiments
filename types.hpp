@@ -32,3 +32,5 @@ inline std::vector<vertex> render_vertices(1024);
 inline std::vector<uint32_t> render_indices(1024);
 inline lava::buffer::ptr vertices_buffer = nullptr;
 inline lava::buffer::ptr indices_buffer = nullptr;
+
+inline lava::device_p device = nullptr;

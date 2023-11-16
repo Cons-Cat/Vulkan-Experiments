@@ -13,7 +13,6 @@ struct mypipeline {
     }
 };
 
-mypipeline make_color_pipeline(lava::device_p& device,
-                               VkDescriptorSet& descriptor_set,
+mypipeline make_color_pipeline(VkDescriptorSet& descriptor_set,
                                lava::descriptor::ptr& descriptor,
                                lava::render_pass::ptr& render_pass);
