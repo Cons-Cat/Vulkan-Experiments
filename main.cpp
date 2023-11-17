@@ -8,6 +8,7 @@ void add_shader_to(lava::render_pipeline::ptr& pipeline,
                    VkShaderStageFlagBits stage);
 
 lava::render_pass::ptr init_color_pass();
+lava::render_pass::ptr init_composite_pass(lava::render_target::ptr&);
 
 // Reserve two screen-sized textures.
 inline std::vector<std::byte> textures_data(game_width* game_height * 2);
@@ -83,6 +84,8 @@ auto main(int argc, char* argv[]) -> int {
     entity_id_image->create(device, {game_width, game_height});
 
     lava::render_pass::ptr color_render_pass = init_color_pass();
+    lava::render_pass::ptr composite_render_pass =
+        init_composite_pass(final_render_target);
 
     lava::ui32 frame_count = final_render_target->get_frame_count();
     lava::block block;
@@ -112,6 +115,8 @@ auto main(int argc, char* argv[]) -> int {
 
     final_render_target->add_callback(
         &color_render_pass->get_target_callback());
+    final_render_target->add_callback(
+        &composite_render_pass->get_target_callback());
 
     lava::renderer renderer;
     if (!renderer.create(final_render_target->get_swapchain())) {
@@ -200,8 +205,12 @@ auto main(int argc, char* argv[]) -> int {
 
     mypipeline color_pipeline = make_color_pipeline(
         descriptor_set, bindless_descriptor, color_render_pass);
+    mypipeline composite_pipeline =
+        make_composite_pipeline(composite_render_pass);
+    //
     // push this render color_render_pass to the pipeline
     color_render_pass->add_front(color_pipeline.pipeline, 0);
+    composite_render_pass->add_front(composite_pipeline.pipeline, 0);
 
     block.add_command([&](VkCommandBuffer cmd_buf) {
         std::memcpy(bindless_buffer.get_mapped_data(), std::data(bindless_data),

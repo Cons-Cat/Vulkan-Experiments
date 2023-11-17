@@ -105,13 +105,40 @@ lava::render_pass::ptr init_color_pass() {
     return pass;
 }
 
-lava::render_pass::ptr init_composite_pass(
-    lava::render_target::ptr& target, lava::attachment::ptr& color_attachment,
-    lava::attachment::ptr& depth_attachment) {
+lava::render_pass::ptr init_composite_pass(lava::render_target::ptr& target) {
     lava::render_pass::ptr pass = lava::render_pass::make(device);
+
+    lava::attachment::ptr color_attachment =
+        lava::attachment::make(VK_FORMAT_B8G8R8A8_UNORM);
+    color_attachment->set_op(VK_ATTACHMENT_LOAD_OP_LOAD,
+                             VK_ATTACHMENT_STORE_OP_STORE);
+    color_attachment->set_stencil_op(VK_ATTACHMENT_LOAD_OP_LOAD,
+                                     VK_ATTACHMENT_STORE_OP_DONT_CARE);
+    color_attachment->set_layouts(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                                  VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    auto depth_format =
+        lava::find_supported_depth_format(device->get_vk_physical_device());
+    lava::attachment::ptr depth_attachment =
+        lava::attachment::make(depth_format.value());
+    depth_attachment->set_op(VK_ATTACHMENT_LOAD_OP_LOAD,
+                             VK_ATTACHMENT_STORE_OP_STORE);
+    depth_attachment->set_stencil_op(VK_ATTACHMENT_LOAD_OP_LOAD,
+                                     VK_ATTACHMENT_STORE_OP_DONT_CARE);
+    depth_attachment->set_layouts(
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    lava::attachment::ptr id_attachment =
+        lava::attachment::make(VK_FORMAT_R32_UINT);
+    id_attachment->set_op(VK_ATTACHMENT_LOAD_OP_LOAD,
+                          VK_ATTACHMENT_STORE_OP_DONT_CARE);
+    id_attachment->set_stencil_op(VK_ATTACHMENT_LOAD_OP_LOAD,
+                                  VK_ATTACHMENT_STORE_OP_DONT_CARE);
+    id_attachment->set_layouts(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                               VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     pass->add(color_attachment);
     pass->add(depth_attachment);
+    pass->add(id_attachment);
 
     auto subpass = lava::subpass::make(VK_PIPELINE_BIND_POINT_GRAPHICS);
     subpass->add_color_attachment(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);

@@ -16,3 +16,5 @@ struct mypipeline {
 mypipeline make_color_pipeline(VkDescriptorSet& descriptor_set,
                                lava::descriptor::ptr& descriptor,
                                lava::render_pass::ptr& render_pass);
+
+mypipeline make_composite_pipeline(lava::render_pass::ptr& render_pass);
