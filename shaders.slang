@@ -84,5 +84,5 @@ float4 composite_vertex_main(int id : SV_VertexID) : SV_Position {
 [shader("fragment")]
 float4 composite_fragment_main(float4 color : SV_Target0)
 {
-    return 0;
+    return {0,1,1,1};
 }

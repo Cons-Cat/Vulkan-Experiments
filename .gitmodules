@@ -1,3 +1,6 @@
 [submodule "Vulkan-WSIWindow"]
 	path = Vulkan-WSIWindow
 	url = https://github.com/renelindsay/Vulkan-WSIWindow
+[submodule "vk-bootstrap"]
+	path = vk-bootstrap
+	url = https://github.com/charles-lunarg/vk-bootstrap
