@@ -6,8 +6,6 @@
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 #include "defer.hpp"
 
@@ -37,15 +35,13 @@ struct RenderData {
     VkQueue graphics_queue;
     VkQueue present_queue;
 
+    std::array<VkShaderEXT, 2> shaders;
+
     std::vector<VkImage> swapchain_color_images;
     std::vector<VkImageView> swapchain_color_image_views;
     std::vector<VkImage> swapchain_depth_images;
     std::vector<VkImageView> swapchain_depth_image_views;
     std::vector<VkDeviceMemory> depth_memories;
-
-    VkRenderPass render_pass;
-    VkPipelineLayout pipeline_layout;
-    VkPipeline graphics_pipeline;
 
     VkCommandPool command_pool;
     std::vector<VkCommandBuffer> command_buffers;
@@ -64,8 +60,8 @@ int device_initialization(Init& init) {
     phys_device_selector
         .add_required_extension(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME)
         .add_required_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
-        .add_required_extension(VK_EXT_SHADER_OBJECT_EXTENSION_NAME)
-        .add_required_extension(VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME);
+        .add_required_extension(VK_EXT_SHADER_OBJECT_EXTENSION_NAME);
+    //.add_required_extension(VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME);
 
     auto phys_device_ret =
         phys_device_selector.set_surface(init.surface).select();
@@ -78,9 +74,11 @@ int device_initialization(Init& init) {
     vk::PhysicalDeviceDynamicRenderingFeatures dynamic_rendering_feature(true);
     vk::PhysicalDeviceBufferDeviceAddressFeaturesKHR device_address_feature(
         true, true, true, &dynamic_rendering_feature);
+    vk::PhysicalDeviceShaderObjectFeaturesEXT shader_object_feature(
+        true, &device_address_feature);
 
     vkb::DeviceBuilder device_builder{init.gpu};
-    device_builder.add_pNext(&device_address_feature);
+    device_builder.add_pNext(&shader_object_feature);
     auto device_ret = device_builder.build();
     if (!device_ret) {
         std::cout << device_ret.error().message() << "\n";
@@ -89,7 +87,6 @@ int device_initialization(Init& init) {
     init.device = device_ret.value();
 
     init.disp = init.device.make_table();
-    // init.disp.fp_vkDestroyShaderEXT = init.disp.fun
 
     return 0;
 }
@@ -230,7 +227,6 @@ int create_swapchain_images(Init& init, RenderData& data) {
         data.swapchain_color_image_views.size());
     data.depth_memories.resize(data.swapchain_color_images.size());
 
-    // TODO: Memory leaks of depth memory
     for (int i = 0; i < data.swapchain_depth_images.size(); ++i) {
         createImage(init, init.swapchain.extent.width,
                     init.swapchain.extent.height, depthFormat,
@@ -238,9 +234,10 @@ int create_swapchain_images(Init& init, RenderData& data) {
                     VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                     data.swapchain_depth_images[i], data.depth_memories[i]);
-        data.swapchain_depth_image_views[i] =
-            createImageView(init, data.swapchain_depth_images[i], depthFormat,
-                            VK_IMAGE_ASPECT_DEPTH_BIT);
+
+        data.swapchain_depth_image_views[i] = createImageView(
+            init, data.swapchain_depth_images[i], depthFormat,
+            VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
     }
 
     return 0;
@@ -279,8 +276,6 @@ int create_command_buffers(Init& init, RenderData& data) {
     auto frag_code =
         readFile("/home/conscat/game/vk-bootstrap/build/example/frag.spv");
 
-    std::array<VkShaderEXT, 2> shaders;
-
     VkShaderCreateInfoEXT vertex_info{
         .sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT,
         .stage = VK_SHADER_STAGE_VERTEX_BIT,
@@ -303,7 +298,7 @@ int create_command_buffers(Init& init, RenderData& data) {
     std::array infos = {vertex_info, fragment_info};
 
     init.disp.createShadersEXT(infos.size(), infos.data(), nullptr,
-                               shaders.data());
+                               data.shaders.data());
 
     for (size_t i = 0; i < data.command_buffers.size(); i++) {
         VkCommandBufferBeginInfo begin_info = {};
@@ -315,6 +310,7 @@ int create_command_buffers(Init& init, RenderData& data) {
         }
 
         VkClearValue clearColor{{{1.0f, 0.0f, 1.0f, 1.0f}}};
+        VkClearValue depthClearColor{{{1.0f, 0.0f, 1.0f, 1.0f}}};
 
         VkViewport viewport = {};
         viewport.x = 0.0f;
@@ -329,8 +325,9 @@ int create_command_buffers(Init& init, RenderData& data) {
         scissor.offset = {0, 0};
         scissor.extent = init.swapchain.extent;
 
-        init.disp.cmdSetViewport(data.command_buffers[i], 0, 1, &viewport);
-        init.disp.cmdSetScissor(data.command_buffers[i], 0, 1, &scissor);
+        init.disp.cmdSetViewportWithCount(data.command_buffers[i], 1,
+                                          &viewport);
+        init.disp.cmdSetScissorWithCount(data.command_buffers[i], 1, &scissor);
 
         VkRenderingAttachmentInfoKHR const color_attachment_info{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
@@ -344,10 +341,11 @@ int create_command_buffers(Init& init, RenderData& data) {
         VkRenderingAttachmentInfoKHR const depth_attachment_info{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
             .imageView = data.swapchain_depth_image_views[i],
-            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .resolveMode = VK_RESOLVE_MODE_NONE,
             .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-            .clearValue = clearColor,
+            .clearValue = depthClearColor,
         };
 
         VkRect2D render_area = {
@@ -362,6 +360,7 @@ int create_command_buffers(Init& init, RenderData& data) {
             .colorAttachmentCount = 1,
             .pColorAttachments = &color_attachment_info,
             .pDepthAttachment = &depth_attachment_info,
+            // .pStencilAttachment = &depth_attachment_info,
         };
 
         VkImageMemoryBarrier const image_render_barrier{
@@ -379,6 +378,22 @@ int create_command_buffers(Init& init, RenderData& data) {
                                  }
         };
 
+        VkImageMemoryBarrier const depth_render_barrier{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .image = data.swapchain_depth_images[i],
+            .subresourceRange = {
+                                 .aspectMask =
+                                 VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+                                 .baseMipLevel = 0,
+                                 .levelCount = 1,
+                                 .baseArrayLayer = 0,
+                                 .layerCount = 1,
+                                 }
+        };
+
         init.disp.cmdPipelineBarrier(
             data.command_buffers[i],
             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,              // srcStageMask
@@ -388,17 +403,74 @@ int create_command_buffers(Init& init, RenderData& data) {
             &image_render_barrier  // pImageMemoryBarriers
         );
 
+        init.disp.cmdPipelineBarrier(
+            data.command_buffers[i],
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,  // srcStageMask
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+                VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,  // dstStageMask
+            0, 0, nullptr, 0, nullptr,
+            1,                     // imageMemoryBarrierCount
+            &depth_render_barrier  // pImageMemoryBarriers
+        );
+
         init.disp.cmdBeginRendering(data.command_buffers[i], &render_info);
 
         init.disp.cmdSetCullMode(data.command_buffers[i], VK_CULL_MODE_NONE);
+        init.disp.cmdSetPolygonModeEXT(data.command_buffers[i],
+                                       VK_POLYGON_MODE_FILL);
         init.disp.cmdSetDepthWriteEnable(data.command_buffers[i], VK_FALSE);
+
+        init.disp.cmdSetFrontFace(data.command_buffers[i],
+                                  VK_FRONT_FACE_CLOCKWISE);
+
+        init.disp.cmdSetRasterizerDiscardEnable(data.command_buffers[i],
+                                                VK_FALSE);
+        init.disp.cmdSetRasterizationSamplesEXT(data.command_buffers[i],
+                                                VK_SAMPLE_COUNT_1_BIT);
+
+        VkSampleMask sample_mask = 0x1;
+        init.disp.cmdSetSampleMaskEXT(data.command_buffers[i],
+                                      VK_SAMPLE_COUNT_1_BIT, &sample_mask);
+        init.disp.cmdSetAlphaToCoverageEnableEXT(data.command_buffers[i],
+                                                 VK_FALSE);
+
+        init.disp.cmdSetPrimitiveTopology(data.command_buffers[i],
+                                          VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+        init.disp.cmdSetPrimitiveRestartEnable(data.command_buffers[i],
+                                               VK_FALSE);
+
+        init.disp.cmdSetVertexInputEXT(data.command_buffers[i], 0, nullptr, 0,
+                                       nullptr);
+
+        init.disp.cmdSetDepthClampEnableEXT(data.command_buffers[i], VK_FALSE);
+
+        init.disp.cmdSetDepthBiasEnable(data.command_buffers[i], VK_FALSE);
+        init.disp.cmdSetDepthTestEnable(data.command_buffers[i], VK_FALSE);
+        init.disp.cmdSetDepthWriteEnable(data.command_buffers[i], VK_FALSE);
+        init.disp.cmdSetDepthBoundsTestEnable(data.command_buffers[i],
+                                              VK_FALSE);
+        init.disp.cmdSetDepthCompareOp(data.command_buffers[i],
+                                       VK_COMPARE_OP_GREATER);
+        init.disp.cmdSetStencilTestEnable(data.command_buffers[i], VK_FALSE);
+
+        init.disp.cmdSetLogicOpEnableEXT(data.command_buffers[i], VK_FALSE);
+
+        VkBool32 color_blend = VK_FALSE;
+        init.disp.cmdSetColorBlendEnableEXT(data.command_buffers[i], 0, 1,
+                                            &color_blend);
+
+        VkColorComponentFlags color_write_mask =
+            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+            VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+        init.disp.cmdSetColorWriteMaskEXT(data.command_buffers[i], 0, 1,
+                                          &color_write_mask);
 
         auto vert_bit = VK_SHADER_STAGE_VERTEX_BIT;
         auto frag_bit = VK_SHADER_STAGE_FRAGMENT_BIT;
         init.disp.cmdBindShadersEXT(data.command_buffers[i], 1, &vert_bit,
-                                    &shaders[0]);
+                                    &data.shaders[0]);
         init.disp.cmdBindShadersEXT(data.command_buffers[i], 1, &frag_bit,
-                                    &shaders[1]);
+                                    &data.shaders[1]);
 
         init.disp.cmdDraw(data.command_buffers[i], 3, 1, 0, 0);
 
@@ -419,6 +491,22 @@ int create_command_buffers(Init& init, RenderData& data) {
                                  }
         };
 
+        VkImageMemoryBarrier const depth_present_barrier{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            .image = data.swapchain_depth_images[i],
+            .subresourceRange = {
+                                 .aspectMask =
+                                 VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+                                 .baseMipLevel = 0,
+                                 .levelCount = 1,
+                                 .baseArrayLayer = 0,
+                                 .layerCount = 1,
+                                 }
+        };
+
         init.disp.cmdPipelineBarrier(
             data.command_buffers[i],
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,  // srcStageMask
@@ -426,6 +514,15 @@ int create_command_buffers(Init& init, RenderData& data) {
             0, 0, nullptr, 0, nullptr,
             1,                      // imageMemoryBarrierCount
             &image_present_barrier  // pImageMemoryBarriers
+        );
+
+        init.disp.cmdPipelineBarrier(
+            data.command_buffers[i],
+            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,  // srcStageMask
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,       // dstStageMask
+            0, 0, nullptr, 0, nullptr,
+            1,                      // imageMemoryBarrierCount
+            &depth_present_barrier  // pImageMemoryBarriers
         );
 
         if (init.disp.endCommandBuffer(data.command_buffers[i]) != VK_SUCCESS) {
@@ -539,7 +636,8 @@ int draw_frame(Init& init, RenderData& data) {
 
     VkPresentInfoKHR present_info = {};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
+    unsigned int present_indices = 1;
+    present_info.pImageIndices = &present_indices;
     present_info.waitSemaphoreCount = 1;
     present_info.pWaitSemaphores = signal_semaphores;
 
@@ -562,6 +660,9 @@ int draw_frame(Init& init, RenderData& data) {
 }
 
 void cleanup(Init& init, RenderData& data) {
+    init.disp.destroyShaderEXT(data.shaders[0], nullptr);
+    init.disp.destroyShaderEXT(data.shaders[1], nullptr);
+
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         init.disp.destroySemaphore(data.finished_semaphore[i], nullptr);
         init.disp.destroySemaphore(data.available_semaphores[i], nullptr);
@@ -590,9 +691,7 @@ int main() {
     RenderData render_data;
 
     vkb::InstanceBuilder instance_builder;
-    auto maybe_instance = instance_builder
-                              .use_default_debug_messenger()
-                              //.request_validation_layers()
+    auto maybe_instance = instance_builder.request_validation_layers()
                               .require_api_version(1, 3, 0)
                               .build();
     if (!maybe_instance) {
