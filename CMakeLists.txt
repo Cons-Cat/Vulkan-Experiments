@@ -47,6 +47,7 @@ target_link_libraries(game PRIVATE
    #asan
    Vulkan::Vulkan
    vk-bootstrap::vk-bootstrap
+   ${CMAKE_DL_LIBS}
    WSIWindow
 )
 
