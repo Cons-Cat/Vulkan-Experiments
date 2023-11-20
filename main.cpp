@@ -168,9 +168,21 @@ struct shader_objects_t {
         add_shader(shader_path, vk::ShaderStageFlagBits::eFragment);
     }
 
+    void bind_vertex(vk::CommandBuffer cmd, uint32_t index) {
+        auto vert_bit = VK_SHADER_STAGE_VERTEX_BIT;
+        VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdBindShadersEXT(
+            cmd, 1, &vert_bit, (VkShaderEXT*)&objects[index]);
+    }
+
+    void bind_fragment(vk::CommandBuffer cmd, uint32_t index) {
+        auto frag_bit = VK_SHADER_STAGE_FRAGMENT_BIT;
+        VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdBindShadersEXT(
+            cmd, 1, &frag_bit, (VkShaderEXT*)&objects[index]);
+    }
+
     void destroy() {
-        for (auto& o : objects) {
-            VULKAN_HPP_DEFAULT_DISPATCHER.vkDestroyShaderEXT(device, o,
+        for (auto& shader : objects) {
+            VULKAN_HPP_DEFAULT_DISPATCHER.vkDestroyShaderEXT(device, shader,
                                                              nullptr);
         }
     }
@@ -216,15 +228,7 @@ void create_sync_objects() {
     }
 }
 
-void recreate_swapchain() {
-    device.waitIdle();
-    device.destroyCommandPool(g_command_pool);
-    g_swapchain.destroy_image_views(g_swapchain_views);
-
-    create_swapchain();
-    create_command_pool();
-    create_command_buffers();
-}
+void recreate_swapchain();
 
 void render_and_present() {
     static uint32_t frame = 0;
@@ -298,7 +302,56 @@ void render_and_present() {
     frame = (frame + 1) % max_frames_in_flight;
 }
 
-void set_all_render_state() {
+void set_all_render_state(vk::CommandBuffer cmd) {
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetLineWidth(cmd, 1.0);
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetCullMode(cmd, VK_CULL_MODE_NONE);
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetPolygonModeEXT(cmd,
+                                                         VK_POLYGON_MODE_FILL);
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetDepthWriteEnable(cmd, VK_FALSE);
+
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetRasterizerDiscardEnable(cmd,
+                                                                  VK_FALSE);
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetRasterizationSamplesEXT(
+        cmd, VK_SAMPLE_COUNT_1_BIT);
+
+    VkSampleMask sample_mask = 0x1;
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetSampleMaskEXT(
+        cmd, VK_SAMPLE_COUNT_1_BIT, &sample_mask);
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetAlphaToCoverageEnableEXT(cmd,
+                                                                   VK_FALSE);
+
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetPrimitiveTopology(
+        cmd, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetPrimitiveRestartEnable(cmd, VK_FALSE);
+
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetVertexInputEXT(cmd, 0, nullptr, 0,
+                                                         nullptr);
+
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetDepthClampEnableEXT(cmd, VK_FALSE);
+
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetDepthBiasEnable(cmd, VK_FALSE);
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetDepthTestEnable(cmd, VK_TRUE);
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetDepthWriteEnable(cmd, VK_TRUE);
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetDepthBoundsTestEnable(cmd, VK_FALSE);
+
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetFrontFace(cmd,
+                                                    VK_FRONT_FACE_CLOCKWISE);
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetDepthCompareOp(
+        cmd, VK_COMPARE_OP_LESS_OR_EQUAL);
+
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetStencilTestEnable(cmd, VK_FALSE);
+
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetLogicOpEnableEXT(cmd, VK_FALSE);
+
+    VkBool32 color_blend = VK_FALSE;
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetColorBlendEnableEXT(cmd, 0, 1,
+                                                              &color_blend);
+
+    VkColorComponentFlags color_write_mask =
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+        VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetColorWriteMaskEXT(cmd, 0, 1,
+                                                            &color_write_mask);
 }
 
 void record_rendering(uint32_t const frame) {
@@ -372,6 +425,13 @@ void record_rendering(uint32_t const frame) {
     VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdBeginRendering(
         cmd, (VkRenderingInfo*)&rendering_info);
 
+    set_all_render_state(cmd);
+
+    shader_objects.bind_vertex(cmd, 0);
+    shader_objects.bind_fragment(cmd, 1);
+
+    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdDraw(cmd, 3, 1, 0, 0);
+
     VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdEndRendering(cmd);
 
     // swapchain_images[frame].setLayout(cmd, vk::ImageLayout::ePresentSrcKHR);
@@ -402,6 +462,20 @@ void record_rendering(uint32_t const frame) {
     );
 
     cmd.end();
+}
+
+void recreate_swapchain() {
+    device.waitIdle();
+    device.destroyCommandPool(g_command_pool);
+    g_swapchain.destroy_image_views(g_swapchain_views);
+
+    create_swapchain();
+    create_command_pool();
+    create_command_buffers();
+
+    for (uint32_t i = 0; i < g_command_buffers.size(); ++i) {
+        record_rendering(i);
+    }
 }
 
 struct my_window final : public WSIWindow {
