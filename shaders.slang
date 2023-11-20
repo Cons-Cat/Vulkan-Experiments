@@ -73,7 +73,8 @@ void fragment_main(in vertex_output_t vertex, out float4 color : SV_Target0, out
 
 // Generate a triangle that covers the screen.
 [shader("vertex")]
-float4 composite_vertex_main(int id : SV_VertexID) : SV_Position {
+float4 composite_vertex_main(uint32_t id : SV_VertexID) : SV_Position {
+    // Supposedly this compiles better than the bit shifting soluion.
     float4 position;
     position.x = (id == 2) ?  3.0 : -1.0;
     position.y = (id == 1) ? -3.0 :  1.0;
@@ -82,7 +83,30 @@ float4 composite_vertex_main(int id : SV_VertexID) : SV_Position {
 }
 
 [shader("fragment")]
-float4 composite_fragment_main(float4 color : SV_Target0)
+float4 composite_fragment_main(float4 color) : SV_Target0
 {
-    return {0,1,1,1};
+    return color;
+}
+
+// Generate a demo triangle.
+[shader("vertex")]
+float4 demo_vertex_main(in uint32_t id : SV_VertexID, out float3 color : SV_Target0) : SV_Position
+{
+
+float2 positions[3] = {
+    float2 (0.0, -0.5), float2 (0.5, 0.5), float2 (-0.5, 0.5),
+};
+
+float3 colors[3] = {
+    float3 (1.0, 0.0, 0.0), float3 (0.0, 1.0, 0.0), float3 (0.0, 0.0, 1.0),
+};
+
+    color = colors[id];
+    return float4(positions[id],0,1);
+}
+
+[shader("fragment")]
+float4 demo_fragment_main(float4 color : SV_Target0)
+{
+    return color;
 }

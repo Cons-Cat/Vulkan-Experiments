@@ -1,3 +1,4 @@
+#include <vku/vku.hpp>
 #include <vulkan/vulkan.hpp>
 
 #include <VkBootstrap.h>
@@ -19,7 +20,7 @@ struct my_window final : public WSIWindow {
     }
 };
 
-auto depthFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+auto depthFormat = VK_FORMAT_D32_SFLOAT;
 
 struct Init {
     vkb::Instance instance;
@@ -36,6 +37,10 @@ struct RenderData {
     VkQueue present_queue;
 
     std::array<VkShaderEXT, 2> shaders;
+    std::array<VkShaderEXT, 2> post_shaders;
+
+    vk::DescriptorPool pool;
+    vk::DescriptorSet set;
 
     std::vector<VkImage> swapchain_color_images;
     std::vector<VkImageView> swapchain_color_image_views;
@@ -235,9 +240,9 @@ int create_swapchain_images(Init& init, RenderData& data) {
                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                     data.swapchain_depth_images[i], data.depth_memories[i]);
 
-        data.swapchain_depth_image_views[i] = createImageView(
-            init, data.swapchain_depth_images[i], depthFormat,
-            VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+        data.swapchain_depth_image_views[i] =
+            createImageView(init, data.swapchain_depth_images[i], depthFormat,
+                            VK_IMAGE_ASPECT_DEPTH_BIT);
     }
 
     return 0;
@@ -271,6 +276,9 @@ int create_command_buffers(Init& init, RenderData& data) {
         return -1;  // failed to allocate command buffers;
     }
 
+    // auto vert_code = readFile("/home/conscat/game/demo_vertex.spv");
+    // auto frag_code = readFile("/home/conscat/game/demo_fragment.spv");
+
     auto vert_code =
         readFile("/home/conscat/game/vk-bootstrap/build/example/vert.spv");
     auto frag_code =
@@ -299,6 +307,36 @@ int create_command_buffers(Init& init, RenderData& data) {
 
     init.disp.createShadersEXT(infos.size(), infos.data(), nullptr,
                                data.shaders.data());
+
+    // Post processing.
+    // auto post_vert_code =
+    // readFile("/home/conscat/game/composite_vertex.spirv"); auto
+    // post_frag_code =
+    //     readFile("/home/conscat/game/composite_fragment.spirv");
+
+    // VkShaderCreateInfoEXT post_vertex_info{
+    //     .sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT,
+    //     .stage = VK_SHADER_STAGE_VERTEX_BIT,
+    //     .nextStage = VK_SHADER_STAGE_FRAGMENT_BIT,
+    //     .codeType = VkShaderCodeTypeEXT::VK_SHADER_CODE_TYPE_SPIRV_EXT,
+    //     .codeSize = post_vert_code.size(),
+    //     .pCode = post_vert_code.data(),
+    //     .pName = "main",
+    // };
+
+    // VkShaderCreateInfoEXT post_fragment_info{
+    //     .sType = VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT,
+    //     .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+    //     .codeType = VkShaderCodeTypeEXT::VK_SHADER_CODE_TYPE_SPIRV_EXT,
+    //     .codeSize = post_frag_code.size(),
+    //     .pCode = post_frag_code.data(),
+    //     .pName = "main",
+    // };
+
+    // std::array post_infos = {post_vertex_info, post_fragment_info};
+
+    // init.disp.createShadersEXT(post_infos.size(), post_infos.data(), nullptr,
+    //                            data.post_shaders.data());
 
     for (size_t i = 0; i < data.command_buffers.size(); i++) {
         VkCommandBufferBeginInfo begin_info = {};
@@ -329,6 +367,11 @@ int create_command_buffers(Init& init, RenderData& data) {
                                           &viewport);
         init.disp.cmdSetScissorWithCount(data.command_buffers[i], 1, &scissor);
 
+        VkRect2D render_area = {
+            .offset = {0, 0},
+            .extent = init.swapchain.extent,
+        };
+
         VkRenderingAttachmentInfoKHR const color_attachment_info{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
             .imageView = data.swapchain_color_image_views[i],
@@ -348,11 +391,6 @@ int create_command_buffers(Init& init, RenderData& data) {
             .clearValue = depthClearColor,
         };
 
-        VkRect2D render_area = {
-            .offset = {0, 0},
-            .extent = init.swapchain.extent,
-        };
-
         VkRenderingInfoKHR const render_info = {
             .sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR,
             .renderArea = render_area,
@@ -360,7 +398,6 @@ int create_command_buffers(Init& init, RenderData& data) {
             .colorAttachmentCount = 1,
             .pColorAttachments = &color_attachment_info,
             .pDepthAttachment = &depth_attachment_info,
-            // .pStencilAttachment = &depth_attachment_info,
         };
 
         VkImageMemoryBarrier const image_render_barrier{
@@ -382,11 +419,10 @@ int create_command_buffers(Init& init, RenderData& data) {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
             .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            .newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
             .image = data.swapchain_depth_images[i],
             .subresourceRange = {
-                                 .aspectMask =
-                                 VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+                                 .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
                                  .baseMipLevel = 0,
                                  .levelCount = 1,
                                  .baseArrayLayer = 0,
@@ -415,13 +451,11 @@ int create_command_buffers(Init& init, RenderData& data) {
 
         init.disp.cmdBeginRendering(data.command_buffers[i], &render_info);
 
+        init.disp.cmdSetLineWidth(data.command_buffers[i], 1.0);
         init.disp.cmdSetCullMode(data.command_buffers[i], VK_CULL_MODE_NONE);
         init.disp.cmdSetPolygonModeEXT(data.command_buffers[i],
                                        VK_POLYGON_MODE_FILL);
         init.disp.cmdSetDepthWriteEnable(data.command_buffers[i], VK_FALSE);
-
-        init.disp.cmdSetFrontFace(data.command_buffers[i],
-                                  VK_FRONT_FACE_CLOCKWISE);
 
         init.disp.cmdSetRasterizerDiscardEnable(data.command_buffers[i],
                                                 VK_FALSE);
@@ -445,12 +479,16 @@ int create_command_buffers(Init& init, RenderData& data) {
         init.disp.cmdSetDepthClampEnableEXT(data.command_buffers[i], VK_FALSE);
 
         init.disp.cmdSetDepthBiasEnable(data.command_buffers[i], VK_FALSE);
-        init.disp.cmdSetDepthTestEnable(data.command_buffers[i], VK_FALSE);
-        init.disp.cmdSetDepthWriteEnable(data.command_buffers[i], VK_FALSE);
+        init.disp.cmdSetDepthTestEnable(data.command_buffers[i], VK_TRUE);
+        init.disp.cmdSetDepthWriteEnable(data.command_buffers[i], VK_TRUE);
         init.disp.cmdSetDepthBoundsTestEnable(data.command_buffers[i],
                                               VK_FALSE);
+
+        init.disp.cmdSetFrontFace(data.command_buffers[i],
+                                  VK_FRONT_FACE_CLOCKWISE);
         init.disp.cmdSetDepthCompareOp(data.command_buffers[i],
-                                       VK_COMPARE_OP_GREATER);
+                                       VK_COMPARE_OP_LESS_OR_EQUAL);
+
         init.disp.cmdSetStencilTestEnable(data.command_buffers[i], VK_FALSE);
 
         init.disp.cmdSetLogicOpEnableEXT(data.command_buffers[i], VK_FALSE);
@@ -476,6 +514,97 @@ int create_command_buffers(Init& init, RenderData& data) {
 
         init.disp.cmdEndRendering(data.command_buffers[i]);
 
+        // Post processing
+        // VkImageMemoryBarrier const image_post_barrier{
+        //     .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        //     .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        //     .oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        //     .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        //     .image = data.swapchain_color_images[i],
+        //     .subresourceRange = {
+        //                          .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        //                          .baseMipLevel = 0,
+        //                          .levelCount = 1,
+        //                          .baseArrayLayer = 0,
+        //                          .layerCount = 1,
+        //                          }
+        // };
+
+        // init.disp.cmdPipelineBarrier(
+        //     data.command_buffers[i],
+        //     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,  // srcStageMask
+        //     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,              // dstStageMask
+        //     0, 0, nullptr, 0, nullptr,
+        //     1,                   // imageMemoryBarrierCount
+        //     &image_post_barrier  // pImageMemoryBarriers
+        // );
+
+        // VkImageMemoryBarrier const depth_read_barrier{
+        //     .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        //     .srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+        //     .dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+        //     .oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        //     .newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+        //     .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        //     .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        //     .image = data.swapchain_depth_images[i],
+        //     .subresourceRange = {
+        //                          .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+        //                          .baseMipLevel = 0,
+        //                          .levelCount = 1,
+        //                          .baseArrayLayer = 0,
+        //                          .layerCount = 1,
+        //                          }
+        // };
+
+        // init.disp.cmdPipelineBarrier(
+        //     data.command_buffers[i],
+        //     VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+        //         VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,  // srcStageMask
+        //     VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,          // dstStageMask
+        //     0, 0, nullptr, 0, nullptr,
+        //     1,                   // imageMemoryBarrierCount
+        //     &depth_read_barrier  // pImageMemoryBarriers
+        // );
+
+        // VkRenderingAttachmentInfoKHR const new_depth_attachment_info{
+        //     .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+        //     .imageView = data.swapchain_depth_image_views[i],
+        //     .imageLayout =
+        //         VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL,
+        //     .resolveMode = VK_RESOLVE_MODE_NONE,
+        //     .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+        //     .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        // };
+
+        // VkRenderingInfoKHR const new_render_info = {
+        //     .sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR,
+        //     .renderArea = render_area,
+        //     .layerCount = 1,
+        //     .colorAttachmentCount = 1,
+        //     .pColorAttachments = &color_attachment_info,
+        //     .pDepthAttachment = &new_depth_attachment_info,
+        // };
+
+        // init.disp.cmdBeginRendering(data.command_buffers[i],
+        // &new_render_info);
+
+        // init.disp.cmdSetDepthTestEnable(data.command_buffers[i], VK_FALSE);
+        // init.disp.cmdSetDepthWriteEnable(data.command_buffers[i], VK_FALSE);
+
+        // // init.disp.cmdSetFrontFace(data.command_buffers[i],
+        // //                           VK_FRONT_FACE_COUNTER_CLOCKWISE);
+        // // init.disp.cmdSetDepthCompareOp(data.command_buffers[i],
+        // //                                VK_COMPARE_OP_GREATER_OR_EQUAL);
+
+        // init.disp.cmdBindShadersEXT(data.command_buffers[i], 1, &vert_bit,
+        //                             &data.post_shaders[0]);
+        // init.disp.cmdBindShadersEXT(data.command_buffers[i], 1, &frag_bit,
+        //                             &data.post_shaders[1]);
+        // init.disp.cmdDraw(data.command_buffers[i], 3, 1, 0, 0);
+
+        // init.disp.cmdEndRendering(data.command_buffers[i]);
+
         VkImageMemoryBarrier const image_present_barrier{
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
@@ -491,22 +620,6 @@ int create_command_buffers(Init& init, RenderData& data) {
                                  }
         };
 
-        VkImageMemoryBarrier const depth_present_barrier{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-            .oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-            .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-            .image = data.swapchain_depth_images[i],
-            .subresourceRange = {
-                                 .aspectMask =
-                                 VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
-                                 .baseMipLevel = 0,
-                                 .levelCount = 1,
-                                 .baseArrayLayer = 0,
-                                 .layerCount = 1,
-                                 }
-        };
-
         init.disp.cmdPipelineBarrier(
             data.command_buffers[i],
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,  // srcStageMask
@@ -514,15 +627,6 @@ int create_command_buffers(Init& init, RenderData& data) {
             0, 0, nullptr, 0, nullptr,
             1,                      // imageMemoryBarrierCount
             &image_present_barrier  // pImageMemoryBarriers
-        );
-
-        init.disp.cmdPipelineBarrier(
-            data.command_buffers[i],
-            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,  // srcStageMask
-            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,       // dstStageMask
-            0, 0, nullptr, 0, nullptr,
-            1,                      // imageMemoryBarrierCount
-            &depth_present_barrier  // pImageMemoryBarriers
         );
 
         if (init.disp.endCommandBuffer(data.command_buffers[i]) != VK_SUCCESS) {
@@ -662,6 +766,8 @@ int draw_frame(Init& init, RenderData& data) {
 void cleanup(Init& init, RenderData& data) {
     init.disp.destroyShaderEXT(data.shaders[0], nullptr);
     init.disp.destroyShaderEXT(data.shaders[1], nullptr);
+    init.disp.destroyShaderEXT(data.post_shaders[0], nullptr);
+    init.disp.destroyShaderEXT(data.post_shaders[1], nullptr);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         init.disp.destroySemaphore(data.finished_semaphore[i], nullptr);
@@ -711,6 +817,33 @@ int main() {
     if (0 != create_swapchain(init)) {
         return -1;
     }
+
+    // std::vector<vk::DescriptorPoolSize> pool_sizes;
+    // pool_sizes.emplace_back(vk::DescriptorType::eCombinedImageSampler, 1);
+    // vk::DescriptorPoolCreateInfo descriptorPoolInfo{};
+    // descriptorPoolInfo.flags =
+    //     vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
+    // descriptorPoolInfo.maxSets = 1;
+    // descriptorPoolInfo.poolSizeCount = pool_sizes.size();
+    // descriptorPoolInfo.pPoolSizes = pool_sizes.data();
+    // render_data.pool = vk::Device(init.device.device)
+    //                        .createDescriptorPoolUnique(descriptorPoolInfo)
+    //                        .get();  // TODO release.
+
+    // vku::DescriptorSetLayoutMaker dslm;
+    // // dslm.buffer(
+    // //     0, vk::DescriptorType::eUniformBuffer,
+    // //     vk::ShaderStageFlagBits::eVertex |
+    // //     vk::ShaderStageFlagBits::eFragment, 1);
+    // dslm.image(1, vk::DescriptorType::eCombinedImageSampler,
+    //            vk::ShaderStageFlagBits::eFragment, 1);
+    // auto layout = dslm.createUnique(init.device.device);
+
+    // vku::DescriptorSetMaker dsm{};
+    // dsm.layout(*layout);
+    // auto descriptorSets = dsm.create(init.device.device, render_data.pool);
+    // render_data.set = descriptorSets.front();
+
     if (0 != get_queues(init, render_data)) {
         return -1;
     }

@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.27)
 project(game LANGUAGES CXX)
 
 add_executable(game)
-set_property(TARGET game PROPERTY CXX_STANDARD 26)
+set_property(TARGET game PROPERTY CXX_STANDARD 20)
 target_sources(game PRIVATE
   main.cpp render_pass.cpp)
 target_include_directories(game PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -41,6 +41,7 @@ find_package(Vulkan REQUIRED)
 
 add_subdirectory(Vulkan-WSIWindow ${CMAKE_BINARY_DIR}/WSIWindow)
 add_subdirectory(vk-bootstrap)
+add_subdirectory(Vookoo)
 
 target_link_libraries(game PRIVATE
    ubsan
@@ -49,6 +50,7 @@ target_link_libraries(game PRIVATE
    vk-bootstrap::vk-bootstrap
    ${CMAKE_DL_LIBS}
    WSIWindow
+   vookoo_interface
 )
 
 target_compile_definitions(game PRIVATE
