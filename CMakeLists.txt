@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.27)
 project(game LANGUAGES CXX)
 
 add_executable(game)
-set_property(TARGET game PROPERTY CXX_STANDARD 20)
+set_property(TARGET game PROPERTY CXX_STANDARD 26)
 target_sources(game PRIVATE
   main.cpp render_pass.cpp)
 target_include_directories(game PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -54,7 +54,6 @@ target_link_libraries(game PRIVATE
 )
 
 target_compile_definitions(game PRIVATE
-  #VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
   VULKAN_HPP_TYPESAFE_CONVERSION
   VULKAN_HPP_HAS_SPACESHIP_OPERATOR
 )

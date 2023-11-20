@@ -17,13 +17,13 @@ Checks: "bugprone-*,
 		 -readability-convert-member-functions-to-static, # I rather human judgement.
 		 -readability-named-parameter, # I'm on the fence about this.
          -readability-function-cognitive-complexity, # I rather human judgement.
+         -readability-magic-numbers,
          -misc-non-private-member-variables-in-classes, # This seems very bad.
 		 -misc-unused-using-decls, # This isn't helpful for libraries.
         "
 
 WarningsAsErrors: ''
-HeaderFilterRegex: ^src
-AnalyzeTemporaryDtors: false
+HeaderFilterRegex: ''
 FormatStyle: file
 
 CheckOptions:
@@ -41,6 +41,6 @@ CheckOptions:
   - { key: readability-identifier-naming.TemplateParameterIgnoredRegexp, value: '[A-Z]' }
   - { key: readability-identifier-naming.TypeAliasIgnoredRegexp,  value: '[A-Z]' }
   - { key: readability-identifier-naming.TypedefIgnoredRegexp,    value: '[A-Z]' }
-  - { key: performance-unnecessary-value-param.AllowedTypes,      value: string;span;io_vector }
+  - { key: performance-unnecessary-value-param.AllowedTypes,      value: string_view;span; }
   - { key: readability-operators-representation.BinaryOperators,  value: '&&;&=;&;|;~;!;!=;||;|=;^;^=' }
 ...

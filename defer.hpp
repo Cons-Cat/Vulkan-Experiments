@@ -1,5 +1,21 @@
 #pragma once
 
+#include <algorithm>
+
+namespace std {
+template <std::size_t S, typename... Ts>
+struct aligned_union {
+    static constexpr std::size_t alignment_value = std::max({alignof(Ts)...});
+
+    struct type {
+        alignas(alignment_value) char bytes[std::max({S, sizeof(Ts)...})];
+    };
+};
+
+template <typename T>
+using unaligned_storage [[gnu::aligned(alignof(T))]] = std::byte[sizeof(T)];
+}  // namespace std
+
 namespace detail {
 
 template <typename F>
@@ -25,4 +41,4 @@ inline constinit struct {
 
 }  // namespace detail
 
-#define defer auto _ = detail::deferrer << [&]
+#define defer auto _ = detail::deferrer << [&]  // NOLINT
