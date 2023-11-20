@@ -169,15 +169,13 @@ struct shader_objects_t {
     }
 
     void bind_vertex(vk::CommandBuffer cmd, uint32_t index) {
-        auto vert_bit = VK_SHADER_STAGE_VERTEX_BIT;
-        VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdBindShadersEXT(
-            cmd, 1, &vert_bit, (VkShaderEXT*)&objects[index]);
+        auto frag_bit = vk::ShaderStageFlagBits::eVertex;
+        cmd.bindShadersEXT(1, &frag_bit, &objects[index]);
     }
 
     void bind_fragment(vk::CommandBuffer cmd, uint32_t index) {
-        auto frag_bit = VK_SHADER_STAGE_FRAGMENT_BIT;
-        VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdBindShadersEXT(
-            cmd, 1, &frag_bit, (VkShaderEXT*)&objects[index]);
+        auto frag_bit = vk::ShaderStageFlagBits::eFragment;
+        cmd.bindShadersEXT(1, &frag_bit, &objects[index]);
     }
 
     void destroy() {
@@ -303,55 +301,47 @@ void render_and_present() {
 }
 
 void set_all_render_state(vk::CommandBuffer cmd) {
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetLineWidth(cmd, 1.0);
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetCullMode(cmd, VK_CULL_MODE_NONE);
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetPolygonModeEXT(cmd,
-                                                         VK_POLYGON_MODE_FILL);
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetDepthWriteEnable(cmd, VK_FALSE);
+    // VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdBindDescriptorSets(cmd);
 
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetRasterizerDiscardEnable(cmd,
-                                                                  VK_FALSE);
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetRasterizationSamplesEXT(
-        cmd, VK_SAMPLE_COUNT_1_BIT);
+    cmd.setLineWidth(1.0);
+    cmd.setCullMode(vk::CullModeFlagBits::eNone);
+    cmd.setPolygonModeEXT(vk::PolygonMode::eFill);
+    cmd.setDepthWriteEnable(vk::False);
+    cmd.setRasterizerDiscardEnable(vk::False);
+    cmd.setRasterizationSamplesEXT(vk::SampleCountFlagBits::e1);
 
     VkSampleMask sample_mask = 0x1;
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetSampleMaskEXT(
-        cmd, VK_SAMPLE_COUNT_1_BIT, &sample_mask);
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetAlphaToCoverageEnableEXT(cmd,
-                                                                   VK_FALSE);
+    cmd.setSampleMaskEXT(vk::SampleCountFlagBits::e1, &sample_mask);
+    cmd.setAlphaToCoverageEnableEXT(vk::False);
 
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetPrimitiveTopology(
-        cmd, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetPrimitiveRestartEnable(cmd, VK_FALSE);
+    cmd.setPrimitiveTopology(vk::PrimitiveTopology::eTriangleList);
+    cmd.setPrimitiveRestartEnable(vk::False);
 
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetVertexInputEXT(cmd, 0, nullptr, 0,
-                                                         nullptr);
+    cmd.setVertexInputEXT(0, nullptr, 0, nullptr);
 
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetDepthClampEnableEXT(cmd, VK_FALSE);
+    cmd.setDepthClampEnableEXT(vk::False);
 
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetDepthBiasEnable(cmd, VK_FALSE);
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetDepthTestEnable(cmd, VK_TRUE);
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetDepthWriteEnable(cmd, VK_TRUE);
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetDepthBoundsTestEnable(cmd, VK_FALSE);
+    cmd.setDepthBiasEnable(vk::False);
+    cmd.setDepthTestEnable(vk::True);
+    cmd.setDepthWriteEnable(vk::True);
+    cmd.setDepthBoundsTestEnable(vk::False);
 
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetFrontFace(cmd,
-                                                    VK_FRONT_FACE_CLOCKWISE);
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetDepthCompareOp(
-        cmd, VK_COMPARE_OP_LESS_OR_EQUAL);
+    cmd.setFrontFace(vk::FrontFace::eClockwise);
+    cmd.setDepthCompareOp(vk::CompareOp::eLessOrEqual);
 
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetStencilTestEnable(cmd, VK_FALSE);
+    cmd.setStencilTestEnable(vk::False);
 
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetLogicOpEnableEXT(cmd, VK_FALSE);
+    cmd.setLogicOpEnableEXT(vk::False);
 
+    // cmd.setColorBlendEnableEXT(0, 1, vk::False);
     VkBool32 color_blend = VK_FALSE;
     VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetColorBlendEnableEXT(cmd, 0, 1,
                                                               &color_blend);
 
-    VkColorComponentFlags color_write_mask =
+    auto color_write_mask = static_cast<vk::ColorComponentFlags>(
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-        VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetColorWriteMaskEXT(cmd, 0, 1,
-                                                            &color_write_mask);
+        VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT);
+    cmd.setColorWriteMaskEXT(0, 1, &color_write_mask);
 }
 
 void record_rendering(uint32_t const frame) {
@@ -375,10 +365,8 @@ void record_rendering(uint32_t const frame) {
     vk::Rect2D render_area;
     render_area.setOffset({0, 0}).setExtent(g_swapchain.extent);
 
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetViewportWithCount(
-        cmd, 1, (VkViewport*)&viewport);
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetScissorWithCount(cmd, 1,
-                                                           (VkRect2D*)&scissor);
+    cmd.setViewportWithCount(1, &viewport);
+    cmd.setScissorWithCount(1, &scissor);
 
     vk::RenderingAttachmentInfoKHR color_attachment_info;
     color_attachment_info.setClearValue(clear_color)
@@ -422,17 +410,16 @@ void record_rendering(uint32_t const frame) {
     // g_swapchain_images[frame].setLayout(
     //     cmd, vk::ImageLayout::eColorAttachmentOptimal);
 
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdBeginRendering(
-        cmd, (VkRenderingInfo*)&rendering_info);
+    cmd.beginRendering(rendering_info);
 
     set_all_render_state(cmd);
 
     shader_objects.bind_vertex(cmd, 0);
     shader_objects.bind_fragment(cmd, 1);
 
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdDraw(cmd, 3, 1, 0, 0);
+    cmd.draw(3, 1, 0, 0);
 
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdEndRendering(cmd);
+    cmd.endRendering();
 
     // swapchain_images[frame].setLayout(cmd, vk::ImageLayout::ePresentSrcKHR);
 
@@ -513,14 +500,6 @@ auto main() -> int {
     defer {
         vkb::destroy_swapchain(g_swapchain);
     };
-
-    // Compile and link shaders.
-    shader_objects.add_vertex_shader("/home/conscat/game/demo_vertex.spv");
-    shader_objects.add_fragment_shader("/home/conscat/game/demo_fragment.spv");
-    defer {
-        shader_objects.destroy();
-    };
-
     g_depth_image =
         vku::DepthStencilImage(device, g_physical_device.memory_properties,
                                game_width, game_height, depth_format);
@@ -552,6 +531,13 @@ auto main() -> int {
     vku::DescriptorSetMaker dsm{};
     dsm.layout(*layout);
     g_descriptor_sets = dsm.create(device, descriptor_pool.get());
+
+    // Compile and link shaders.
+    shader_objects.add_vertex_shader("/home/conscat/game/demo_vertex.spv");
+    shader_objects.add_fragment_shader("/home/conscat/game/demo_fragment.spv");
+    defer {
+        shader_objects.destroy();
+    };
 
     create_command_pool();
     defer {
