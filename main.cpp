@@ -20,8 +20,6 @@ inline constexpr uint32_t game_width = 480;
 inline constexpr uint32_t game_height = 320;
 inline constexpr auto depth_format = vk::Format::eD32Sfloat;
 
-inline std::vector<vk::DescriptorSet> g_descriptor_sets;
-
 inline vkb::PhysicalDevice g_physical_device;
 inline std::optional<vkb::SwapchainBuilder> swapchain_builder;
 
@@ -38,6 +36,8 @@ inline std::vector<VkImageView> g_swapchain_views{};
 // std::vector<vku::ColorAttachmentImage> g_swapchain_images;
 inline vku::DepthStencilImage g_depth_image;
 
+vku::GenericBuffer g_buffer;
+
 inline VkCommandPool g_command_pool;
 inline std::vector<vk::CommandBuffer> g_command_buffers;
 
@@ -45,6 +45,10 @@ inline std::vector<VkSemaphore> g_available_semaphores;
 inline std::vector<VkSemaphore> g_finished_semaphore;
 inline std::vector<VkFence> g_in_flight_fences;
 inline std::vector<VkFence> g_image_in_flight;
+
+inline vk::DescriptorSet g_descriptor_set;
+inline vk::DescriptorSetLayout g_descriptor_layout;
+inline vk::PipelineLayout g_pipeline_layout;
 
 auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     vkb::PhysicalDeviceSelector physical_device_selector(instance);
@@ -83,9 +87,9 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     g_present_queue_index =
         device.get_queue_index(vkb::QueueType::present).value();
 
-    g_transfer_queue = device.get_queue(vkb::QueueType::transfer).value();
-    g_transfer_queue_index =
-        device.get_queue_index(vkb::QueueType::transfer).value();
+    // g_transfer_queue = device.get_queue(vkb::QueueType::transfer).value();
+    // g_transfer_queue_index =
+    //     device.get_queue_index(vkb::QueueType::transfer).value();
 
     swapchain_builder = vkb::SwapchainBuilder{device};
 
@@ -141,7 +145,7 @@ struct shader_objects_t {
         std::filesystem::path const& shader_path,
         vk::ShaderStageFlagBits shader_stage,
         vk::ShaderStageFlagBits next_stage = vk::ShaderStageFlagBits{0}) {
-        std::vector spirv_source = read_file(shader_path);
+        std::vector<char> spirv_source = read_file(shader_path);
 
         VkShaderCreateInfoEXT info =
             vk::ShaderCreateInfoEXT{}
@@ -150,7 +154,8 @@ struct shader_objects_t {
                 .setCodeType(vk::ShaderCodeTypeEXT::eSpirv)
                 .setPName("main")
                 .setCodeSize(spirv_source.size())
-                .setPCode(spirv_source.data());
+                .setPCode(spirv_source.data())
+                .setSetLayouts(g_descriptor_layout);
 
         VkShaderEXT p_shader;
 
@@ -349,6 +354,12 @@ void record_rendering(uint32_t const frame) {
     vk::CommandBufferBeginInfo begin_info;
     cmd.begin(begin_info);
 
+    int buffer_data[4] = {1, 2, 3, 4};
+
+    cmd.updateBuffer(g_buffer.buffer(), 0, sizeof(int) * std::size(buffer_data),
+                     std::data(buffer_data));
+    // TODO: Add a barrier.
+
     vk::ClearColorValue clear_color = {
         std::array{1.f, 0.f, 1.f, 0.f}
     };
@@ -505,17 +516,37 @@ auto main() -> int {
                                game_width, game_height, depth_format);
 
     vku::DescriptorSetLayoutMaker dslm{};
-    dslm.buffer(
-        0U, vk::DescriptorType::eStorageBuffer,
-        vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment,
-        1);
-    dslm.image(1U, vk::DescriptorType::eCombinedImageSampler,
-               vk::ShaderStageFlagBits::eFragment, 1);
-    auto layout = dslm.createUnique(device);
+    g_descriptor_layout = dslm.buffer(0, vk::DescriptorType::eStorageBuffer,
+                                      vk::ShaderStageFlagBits::eVertex |
+                                          vk::ShaderStageFlagBits::eFragment,
+                                      1)
+                              .createUnique(device)
+                              .release();
+    // dslm.image(
+    //     1U, vk::DescriptorType::eStorageImage,
+    //     vk::ShaderStageFlagBits::eVertex |
+    //     vk::ShaderStageFlagBits::eFragment, 3);  // Three images.
+
+    vk::PipelineLayoutCreateInfo pipeline_info;
+    pipeline_info.setSetLayouts(g_descriptor_layout);
+    g_pipeline_layout = device.createPipelineLayout(pipeline_info);
 
     std::vector<vk::DescriptorPoolSize> pool_sizes;
     pool_sizes.emplace_back(vk::DescriptorType::eStorageBuffer, 1);
-    pool_sizes.emplace_back(vk::DescriptorType::eCombinedImageSampler, 3);
+    // pool_sizes.emplace_back(vk::DescriptorType::eStorageImage, 3);
+
+    // 128 bytes storage buffer.
+    g_buffer = vku::GenericBuffer(device, g_physical_device.memory_properties,
+                                  vk::BufferUsageFlagBits::eStorageBuffer |
+                                      vk::BufferUsageFlagBits::eTransferDst,
+                                  128);
+
+    vku::TextureImage2D tex_color(device, g_physical_device.memory_properties,
+                                  game_width, game_height);
+    vku::TextureImage2D tex_depth(device, g_physical_device.memory_properties,
+                                  game_width, game_height);
+    vku::TextureImage2D tex_id(device, g_physical_device.memory_properties,
+                               game_width, game_height);
 
     // Create an arbitrary number of descriptors in a pool.
     // Allow the descriptors to be freed, possibly not optimal behaviour.
@@ -529,8 +560,19 @@ auto main() -> int {
         device.createDescriptorPoolUnique(descriptor_pool_info);
 
     vku::DescriptorSetMaker dsm{};
-    dsm.layout(*layout);
-    g_descriptor_sets = dsm.create(device, descriptor_pool.get());
+    dsm.layout(g_descriptor_layout);
+    g_descriptor_set = dsm.create(device, descriptor_pool.get()).front();
+
+    vku::DescriptorSetUpdater dsu;
+    dsu.beginDescriptorSet(g_descriptor_set)
+        .beginBuffers(0, 0, vk::DescriptorType::eStorageBuffer)
+        .buffer(g_buffer.buffer(), 0, vk::WholeSize)
+        // .beginImages(1, 0, vk::DescriptorType::eStorageBuffer)
+        // .image()
+        .update(device);
+    assert(dsu.ok());
+
+    // Make the resources, then attach them, then bind them.
 
     // Compile and link shaders.
     shader_objects.add_vertex_shader("/home/conscat/game/demo_vertex.spv");
