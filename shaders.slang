@@ -1,3 +1,4 @@
+/*
 import quaternion;
 
 struct vertex_t {
@@ -88,11 +89,23 @@ float4 composite_fragment_main(float4 color) : SV_Target0
     return color;
 }
 
+*/
+// demo ///////////////////////////////////////////////////////////////////////
+
+struct moo {
+    float4 a;
+}
+
+// [vk::binding(0,0)]
+// uniform float4 buffer[4];
+
+[vk::binding(0,0)]
+RWStructuredBuffer<moo> buffer;
+
 // Generate a demo triangle.
 [shader("vertex")]
-float4 demo_vertex_main(in uint32_t id : SV_VertexID, out float3 color : SV_Target0) : SV_Position
-{
-
+float4 demo_vertex_main(in uint32_t id : SV_VertexID, out float3 color : SV_Target0)
+: SV_Position {
 float2 positions[3] = {
     float2 (0.0, -0.5), float2 (0.5, 0.5), float2 (-0.5, 0.5),
 };
@@ -101,12 +114,14 @@ float3 colors[3] = {
     float3 (1.0, 0.0, 0.0), float3 (0.0, 1.0, 0.0), float3 (0.0, 0.0, 1.0),
 };
 
-    color = colors[id];
+    color = buffer[0].a.xyz;
+    buffer[0].a = {1,1,1,1};
+    //color = colors[id];
     return float4(positions[id],0,1);
 }
 
 [shader("fragment")]
-float4 demo_fragment_main(float4 color : SV_Target0)
+float4 demo_fragment_main(float4 color : SV_Target0, float4 id : SV_Position)
 {
-    return color;
+    return buffer[0].a;
 }

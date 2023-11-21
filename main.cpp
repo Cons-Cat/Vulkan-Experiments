@@ -20,6 +20,8 @@ inline constexpr uint32_t game_width = 480;
 inline constexpr uint32_t game_height = 320;
 inline constexpr auto depth_format = vk::Format::eD32Sfloat;
 
+inline std::array<float, 4> bindless_data = {1, 1, 0, 1};
+
 inline vkb::PhysicalDevice g_physical_device;
 inline std::optional<vkb::SwapchainBuilder> swapchain_builder;
 
@@ -27,8 +29,6 @@ inline vk::Queue g_graphics_queue;
 inline uint32_t g_graphics_queue_index;
 inline vk::Queue g_present_queue;
 inline uint32_t g_present_queue_index;
-inline vk::Queue g_transfer_queue;
-inline uint32_t g_transfer_queue_index;
 
 inline vkb::Swapchain g_swapchain;
 inline std::vector<VkImage> g_swapchain_images{};
@@ -87,10 +87,6 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     g_present_queue_index =
         device.get_queue_index(vkb::QueueType::present).value();
 
-    // g_transfer_queue = device.get_queue(vkb::QueueType::transfer).value();
-    // g_transfer_queue_index =
-    //     device.get_queue_index(vkb::QueueType::transfer).value();
-
     swapchain_builder = vkb::SwapchainBuilder{device};
 
     return device.device;
@@ -112,12 +108,6 @@ void create_swapchain() {
     g_swapchain = maybe_swapchain.value();
     g_swapchain_images = g_swapchain.get_images().value();
     g_swapchain_views = g_swapchain.get_image_views().value();
-
-    // for (int i = 0; i < g_swapchain.image_count; ++i) {
-    //     g_swapchain_images.emplace_back(
-    //         device.device, g_physical_device.memory_properties, game_width,
-    //         game_height, vk::Format::eR8G8B8A8Unorm);
-    // }
 }
 
 auto read_file(std::filesystem::path const& file_name) -> vector<char> {
@@ -211,6 +201,8 @@ void create_sync_objects() {
     g_finished_semaphore.resize(max_frames_in_flight);
     g_in_flight_fences.resize(max_frames_in_flight);
     g_image_in_flight.resize(g_swapchain.image_count, VK_NULL_HANDLE);
+
+    // TODO: Use hpp bindings for this.
 
     VkSemaphoreCreateInfo semaphore_info = {};
     semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -306,8 +298,6 @@ void render_and_present() {
 }
 
 void set_all_render_state(vk::CommandBuffer cmd) {
-    // VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdBindDescriptorSets(cmd);
-
     cmd.setLineWidth(1.0);
     cmd.setCullMode(vk::CullModeFlagBits::eNone);
     cmd.setPolygonModeEXT(vk::PolygonMode::eFill);
@@ -327,8 +317,8 @@ void set_all_render_state(vk::CommandBuffer cmd) {
     cmd.setDepthClampEnableEXT(vk::False);
 
     cmd.setDepthBiasEnable(vk::False);
-    cmd.setDepthTestEnable(vk::True);
-    cmd.setDepthWriteEnable(vk::True);
+    cmd.setDepthTestEnable(vk::False);
+    cmd.setDepthWriteEnable(vk::False);
     cmd.setDepthBoundsTestEnable(vk::False);
 
     cmd.setFrontFace(vk::FrontFace::eClockwise);
@@ -347,6 +337,9 @@ void set_all_render_state(vk::CommandBuffer cmd) {
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
         VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT);
     cmd.setColorWriteMaskEXT(0, 1, &color_write_mask);
+
+    cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, g_pipeline_layout,
+                           0, g_descriptor_set, nullptr);
 }
 
 void record_rendering(uint32_t const frame) {
@@ -354,10 +347,18 @@ void record_rendering(uint32_t const frame) {
     vk::CommandBufferBeginInfo begin_info;
     cmd.begin(begin_info);
 
-    int buffer_data[4] = {1, 2, 3, 4};
+    // cmd.updateBuffer(g_buffer.buffer(), 0,
+    //                  sizeof(int) * std::size(bindless_data),
+    //                  std::data(bindless_data));
+    // g_buffer.barrier(
+    //     cmd,
+    //     vk::PipelineStageFlagBits::eHost,            // srcStageMask
+    //     vk::PipelineStageFlagBits::eFragmentShader,  // dstStageMask
+    //     vk::DependencyFlagBits::eByRegion,           // dependencyFlags
+    //     vk::AccessFlagBits::eHostWrite,              // srcAccessMask
+    //     vk::AccessFlagBits::eShaderRead,             // dstAccessMask
+    //     g_graphics_queue_index, g_graphics_queue_index);
 
-    cmd.updateBuffer(g_buffer.buffer(), 0, sizeof(int) * std::size(buffer_data),
-                     std::data(buffer_data));
     // TODO: Add a barrier.
 
     vk::ClearColorValue clear_color = {
@@ -515,11 +516,29 @@ auto main() -> int {
         vku::DepthStencilImage(device, g_physical_device.memory_properties,
                                game_width, game_height, depth_format);
 
+    create_command_pool();
+    defer {
+        device.destroyCommandPool(g_command_pool);
+    };
+
+    create_sync_objects();
+    defer {
+        for (auto& semaphore : g_finished_semaphore) {
+            device.destroySemaphore(semaphore);
+        }
+        for (auto& semaphore : g_available_semaphores) {
+            device.destroySemaphore(semaphore);
+        }
+        for (auto& fence : g_in_flight_fences) {
+            device.destroyFence(fence);
+        }
+    };
+
+    create_command_buffers();
+
     vku::DescriptorSetLayoutMaker dslm{};
     g_descriptor_layout = dslm.buffer(0, vk::DescriptorType::eStorageBuffer,
-                                      vk::ShaderStageFlagBits::eVertex |
-                                          vk::ShaderStageFlagBits::eFragment,
-                                      1)
+                                      vk::ShaderStageFlagBits::eAllGraphics, 1)
                               .createUnique(device)
                               .release();
     // dslm.image(
@@ -528,7 +547,8 @@ auto main() -> int {
     //     vk::ShaderStageFlagBits::eFragment, 3);  // Three images.
 
     vk::PipelineLayoutCreateInfo pipeline_info;
-    pipeline_info.setSetLayouts(g_descriptor_layout);
+    pipeline_info.setSetLayouts(g_descriptor_layout)
+        .setFlags(vk::PipelineLayoutCreateFlags());
     g_pipeline_layout = device.createPipelineLayout(pipeline_info);
 
     std::vector<vk::DescriptorPoolSize> pool_sizes;
@@ -539,7 +559,9 @@ auto main() -> int {
     g_buffer = vku::GenericBuffer(device, g_physical_device.memory_properties,
                                   vk::BufferUsageFlagBits::eStorageBuffer |
                                       vk::BufferUsageFlagBits::eTransferDst,
-                                  128);
+                                  sizeof(bindless_data));
+    g_buffer.upload(device, g_physical_device.memory_properties, g_command_pool,
+                    g_graphics_queue, bindless_data);
 
     vku::TextureImage2D tex_color(device, g_physical_device.memory_properties,
                                   game_width, game_height);
@@ -567,7 +589,7 @@ auto main() -> int {
     dsu.beginDescriptorSet(g_descriptor_set)
         .beginBuffers(0, 0, vk::DescriptorType::eStorageBuffer)
         .buffer(g_buffer.buffer(), 0, vk::WholeSize)
-        // .beginImages(1, 0, vk::DescriptorType::eStorageBuffer)
+        // .beginImages(1, 0, vk::DescriptorType::eUniformBuffer)
         // .image()
         .update(device);
     assert(dsu.ok());
@@ -580,26 +602,6 @@ auto main() -> int {
     defer {
         shader_objects.destroy();
     };
-
-    create_command_pool();
-    defer {
-        device.destroyCommandPool(g_command_pool);
-    };
-
-    create_sync_objects();
-    defer {
-        for (auto& semaphore : g_finished_semaphore) {
-            device.destroySemaphore(semaphore);
-        }
-        for (auto& semaphore : g_available_semaphores) {
-            device.destroySemaphore(semaphore);
-        }
-        for (auto& fence : g_in_flight_fences) {
-            device.destroyFence(fence);
-        }
-    };
-
-    create_command_buffers();
 
     for (uint32_t i = 0; i < g_command_buffers.size(); ++i) {
         record_rendering(i);
