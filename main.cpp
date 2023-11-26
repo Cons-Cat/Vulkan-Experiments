@@ -63,6 +63,7 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
         std::cout << maybe_physical_device.error().message() << "\n";
     }
     g_physical_device = maybe_physical_device.value();
+    std::cout << g_physical_device.name << '\n';
 
     vk::PhysicalDeviceDynamicRenderingFeatures dynamic_rendering_feature(true);
     vk::PhysicalDeviceBufferDeviceAddressFeaturesKHR device_address_feature(
@@ -74,7 +75,7 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     device_builder.add_pNext(&shader_object_feature);
     auto maybe_device = device_builder.build();
     if (!maybe_device) {
-        std::cout << maybe_device.error().message() << "\n";
+        std::cout << maybe_device.error().message() << '\n';
     }
     auto device = maybe_device.value();
 
@@ -597,8 +598,10 @@ auto main() -> int {
     // Make the resources, then attach them, then bind them.
 
     // Compile and link shaders.
-    shader_objects.add_vertex_shader("/home/conscat/game/demo_vertex.spv");
-    shader_objects.add_fragment_shader("/home/conscat/game/demo_fragment.spv");
+    shader_objects.add_vertex_shader(getexepath().parent_path() /
+                                     "../vertex.spv");
+    shader_objects.add_fragment_shader(getexepath().parent_path() /
+                                       "../fragment.spv");
     defer {
         shader_objects.destroy();
     };

@@ -5,7 +5,7 @@ project(game LANGUAGES CXX)
 add_executable(game)
 set_property(TARGET game PROPERTY CXX_STANDARD 26)
 target_sources(game PRIVATE
-  main.cpp render_pass.cpp)
+  main.cpp)
 target_include_directories(game PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_compile_options(game PRIVATE
@@ -37,7 +37,13 @@ target_link_options(game PRIVATE
   #-fsanitize=address
 )
 
+add_custom_target(shaders ALL
+  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -profile glsl_450 -target spirv -o ${CMAKE_CURRENT_BINARY_DIR}/vertex.spv -entry demo_vertex_main
+  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -profile glsl_450 -target spirv -o ${CMAKE_CURRENT_BINARY_DIR}/fragment.spv -entry demo_fragment_main
+)
+
 find_package(Vulkan REQUIRED)
+find_package(VulkanHeaders REQUIRED)
 
 add_subdirectory(Vulkan-WSIWindow ${CMAKE_BINARY_DIR}/WSIWindow)
 add_subdirectory(vk-bootstrap)
@@ -47,11 +53,14 @@ target_link_libraries(game PRIVATE
    ubsan
    #asan
    Vulkan::Vulkan
+   Vulkan::Headers
    vk-bootstrap::vk-bootstrap
    ${CMAKE_DL_LIBS}
    WSIWindow
    vookoo_interface
 )
+
+message(STATUS "Vulkan Headers Version: ${VulkanHeaders_VERSION}")
 
 target_compile_definitions(game PRIVATE
   VULKAN_HPP_TYPESAFE_CONVERSION

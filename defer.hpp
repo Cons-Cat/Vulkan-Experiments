@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <filesystem>
 
 namespace std {
 template <std::size_t S, typename... Ts>
@@ -16,6 +17,26 @@ template <typename T>
 using unaligned_storage [[gnu::aligned(alignof(T))]] = std::byte[sizeof(T)];
 }  // namespace std
 
+#ifdef __linux__
+#include <climits>
+#include <string>
+#include <unistd.h>
+
+inline auto getexepath() -> std::filesystem::path {
+    char result[PATH_MAX];
+    ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
+    return std::string(result, (count > 0) ? count : 0);
+}
+#elif _WIN32
+#include <string>
+#include <windows.h>
+
+inline auto getexepath() -> std::filesystem::path {
+    char result[MAX_PATH];
+    return std::string(result, GetModuleFileName(NULL, result, MAX_PATH));
+}
+#endif
+
 namespace detail {
 
 template <typename F>
@@ -24,7 +45,7 @@ class scoped_callback {
 
   public:
     template <typename T>
-    scoped_callback(T&& f) : callback(f) {
+    scoped_callback(T&& f) : callback(f) {  // NOLINT
     }
 
     ~scoped_callback() {
@@ -34,7 +55,7 @@ class scoped_callback {
 
 inline constinit struct {
     template <typename F>
-    scoped_callback<F> operator<<(F&& callback) {
+    auto operator<<(F&& callback) -> scoped_callback<F> {
         return scoped_callback<F>(callback);
     }
 } deferrer;
