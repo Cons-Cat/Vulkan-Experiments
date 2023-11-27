@@ -105,7 +105,7 @@ RWStructuredBuffer<moo> buffer;
 // Generate a demo triangle.
 [shader("vertex")]
 float4 demo_vertex_main(
-    uint32_t vertex : SV_VertexID,
+    in uint32_t vertex : SV_VertexID,
     out float3 color
     )
 : SV_Position {
@@ -126,15 +126,21 @@ float4 demo_vertex_main(
     return float4(positions[vertex],0,1);
 }
 
+struct frag_out {
+    [vk::location(0)]
+    float4 color : SV_Target0;
+    [vk::location(1)]
+    uint32_t id : SV_Target1;
+};
+
 [shader("fragment")]
-float4 demo_fragment_main(
-    inout float4 color,
-    out uint8_t id : SV_Target1
-    //in float4 vertex : SV_Position
+frag_out demo_fragment_main(
     )
-: SV_Target0 {
-    id = 1;
-    return color;
+{
+    frag_out output = {};
+    output.color = {0,1,0,1};
+    output.id = 32000;
+    return output;
 }
 
 // [vk::binding(0,1)]

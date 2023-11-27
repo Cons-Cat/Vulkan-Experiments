@@ -70,11 +70,11 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
         true, true, true, &dynamic_rendering_feature);
     vk::PhysicalDeviceShaderObjectFeaturesEXT shader_object_feature(
         true, &device_address_feature);
-    vk::PhysicalDeviceShaderFloat16Int8FeaturesKHR shader_int_feature(
-        false, true, &shader_object_feature);
+    // vk::PhysicalDeviceShaderFloat16Int8FeaturesKHR shader_int_feature(
+    //     false, true, &shader_object_feature);
 
     vkb::DeviceBuilder device_builder{g_physical_device};
-    device_builder.add_pNext(&shader_int_feature);
+    device_builder.add_pNext(&shader_object_feature);
     auto maybe_device = device_builder.build();
     if (!maybe_device) {
         std::cout << maybe_device.error().message() << '\n';
@@ -318,13 +318,13 @@ void set_all_render_state(vk::CommandBuffer cmd) {
 
     cmd.setDepthClampEnableEXT(vk::False);
 
-    cmd.setDepthBiasEnableEXT(vk::False);
-    cmd.setDepthTestEnableEXT(vk::True);
-    cmd.setDepthWriteEnableEXT(vk::True);
-    cmd.setDepthBoundsTestEnableEXT(vk::False);
+    cmd.setDepthBiasEnable(vk::False);
+    cmd.setDepthTestEnable(vk::True);
+    cmd.setDepthWriteEnable(vk::True);
+    cmd.setDepthBoundsTestEnable(vk::False);
 
     cmd.setFrontFace(vk::FrontFace::eClockwise);
-    cmd.setDepthCompareOp(vk::CompareOp::eLess);
+    cmd.setDepthCompareOp(vk::CompareOp::eLessOrEqual);
 
     cmd.setStencilTestEnable(vk::False);
 
@@ -363,6 +363,7 @@ void record_rendering(uint32_t const frame) {
 
     vk::ClearColorValue clear_color = {1.f, 0.f, 1.f, 0.f};
     vk::ClearColorValue black_clear_color = {0, 0, 0, 1};
+    vk::ClearColorValue depth_clear_color = {1.f, 0.f, 1.f, 1.f};
 
     vk::Viewport viewport;
     viewport.setWidth(game_width)
@@ -386,14 +387,6 @@ void record_rendering(uint32_t const frame) {
         .setLoadOp(vk::AttachmentLoadOp::eClear)
         .setStoreOp(vk::AttachmentStoreOp::eStore);
 
-    vk::RenderingAttachmentInfoKHR depth_attachment_info;
-    depth_attachment_info
-        .setImageLayout(vk::ImageLayout::eDepthAttachmentOptimal)
-        .setImageView(g_depth_image.imageView())
-        .setLoadOp(vk::AttachmentLoadOp::eDontCare)
-        .setStoreOp(vk::AttachmentStoreOp::eStore)
-        .setResolveMode(vk::ResolveModeFlagBits::eNone);
-
     vk::RenderingAttachmentInfoKHR id_attachment_info;
     id_attachment_info.setClearValue(black_clear_color)
         .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
@@ -402,8 +395,15 @@ void record_rendering(uint32_t const frame) {
         .setStoreOp(vk::AttachmentStoreOp::eStore)
         .setResolveMode(vk::ResolveModeFlagBits::eNone);
 
-    vk::RenderingAttachmentInfo attachments[] = {color_attachment_info,
-                                                 id_attachment_info};
+    std::array attachments = {color_attachment_info, id_attachment_info};
+
+    vk::RenderingAttachmentInfoKHR depth_attachment_info;
+    depth_attachment_info.setClearValue(depth_clear_color)
+        .setImageLayout(vk::ImageLayout::eDepthAttachmentOptimal)
+        .setImageView(g_depth_image.imageView())
+        .setLoadOp(vk::AttachmentLoadOp::eClear)
+        .setStoreOp(vk::AttachmentStoreOp::eStore)
+        .setResolveMode(vk::ResolveModeFlagBits::eNone);
 
     vk::RenderingInfo rendering_info;
     rendering_info.setRenderArea(render_area)
@@ -456,8 +456,6 @@ void record_rendering(uint32_t const frame) {
     // cmd.draw(3, 1, 0, 0);
 
     cmd.endRendering();
-
-    // swapchain_images[frame].setLayout(cmd, vk::ImageLayout::ePresentSrcKHR);
 
     VkImageMemoryBarrier const present_memory_barrier{
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -554,19 +552,10 @@ auto main() -> int {
     g_depth_image =
         vku::DepthStencilImage(device, g_physical_device.memory_properties,
                                game_width, game_height, depth_format);
-    // std::vector<uint8_t> depth(static_cast<size_t>(game_width) *
-    // game_height); g_depth_image.upload(device, depth, g_command_pool,
-    //                      g_physical_device.memory_properties,
-    //                      g_graphics_queue,
-    //                      vk::ImageLayout::eDepthAttachmentOptimal);
 
-    g_id_image =
-        vku::ColorAttachmentImage(device, g_physical_device.memory_properties,
-                                  game_width, game_height, vk::Format::eR8Uint);
-    // std::vector<uint8_t> colors(static_cast<size_t>(game_width) *
-    // game_height); g_id_image.upload(device, colors, g_command_pool,
-    //                   g_physical_device.memory_properties, g_graphics_queue,
-    //                      vk::ImageLayout::eColorAttachmentOptimal);
+    g_id_image = vku::ColorAttachmentImage(
+        device, g_physical_device.memory_properties, game_width, game_height,
+        vk::Format::eR32Uint);
 
     create_sync_objects();
     defer {

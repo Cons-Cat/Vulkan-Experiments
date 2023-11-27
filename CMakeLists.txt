@@ -38,10 +38,10 @@ target_link_options(game PRIVATE
 )
 
 add_custom_target(shaders ALL
-  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -profile glsl_450 -target spirv -o ${CMAKE_CURRENT_BINARY_DIR}/vertex.spv -entry demo_vertex_main
-  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -profile glsl_450 -target spirv -o ${CMAKE_CURRENT_BINARY_DIR}/fragment.spv -entry demo_fragment_main
-  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -profile glsl_450 -target spirv -o ${CMAKE_CURRENT_BINARY_DIR}/composite_vertex.spv -entry composite_vertex_main
-  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -profile glsl_450 -target spirv -o ${CMAKE_CURRENT_BINARY_DIR}/composite_fragment.spv -entry composite_fragment_main
+  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -profile glsl_450 -o ${CMAKE_CURRENT_BINARY_DIR}/vertex.spv -entry demo_vertex_main -g
+  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -profile glsl_450 -o ${CMAKE_CURRENT_BINARY_DIR}/fragment.spv -entry demo_fragment_main -g
+  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -profile glsl_450 -o ${CMAKE_CURRENT_BINARY_DIR}/composite_vertex.spv -entry composite_vertex_main -g
+  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -profile glsl_450 -o ${CMAKE_CURRENT_BINARY_DIR}/composite_fragment.spv -entry composite_fragment_main -g
 )
 
 find_package(Vulkan REQUIRED)
