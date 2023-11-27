@@ -449,11 +449,17 @@ void record_rendering(uint32_t const frame) {
 
     cmd.draw(3, 1, 0, 0);
 
-    // Post processing.
-    // shader_objects.bind_vertex(cmd, 2);
-    // shader_objects.bind_fragment(cmd, 3);
+    cmd.endRendering();
 
-    // cmd.draw(3, 1, 0, 0);
+    // Post processing.
+    g_id_image.setLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
+
+    cmd.beginRendering(rendering_info);
+
+    shader_objects.bind_vertex(cmd, 2);
+    shader_objects.bind_fragment(cmd, 3);
+
+    cmd.draw(3, 1, 0, 0);
 
     cmd.endRendering();
 
@@ -557,6 +563,11 @@ auto main() -> int {
         device, g_physical_device.memory_properties, game_width, game_height,
         vk::Format::eR32Uint);
 
+    vku::SamplerMaker sampler_maker;
+    vk::Sampler nearest_sampler =
+        sampler_maker.mipmapMode(vk::SamplerMipmapMode::eNearest)
+            .create(device);
+
     create_sync_objects();
     defer {
         for (auto& semaphore : g_finished_semaphore) {
@@ -573,15 +584,13 @@ auto main() -> int {
     create_command_buffers();
 
     vku::DescriptorSetLayoutMaker dslm{};
-    g_descriptor_layout = dslm.buffer(0, vk::DescriptorType::eStorageBuffer,
-                                      vk::ShaderStageFlagBits::eAllGraphics, 1)
-                              .createUnique(device)
-                              .release();
-
-    // dslm.image(
-    //     1U, vk::DescriptorType::eStorageImage,
-    //     vk::ShaderStageFlagBits::eVertex |
-    //     vk::ShaderStageFlagBits::eFragment, 3);  // Three images.
+    g_descriptor_layout =
+        dslm.buffer(0, vk::DescriptorType::eStorageBuffer,
+                    vk::ShaderStageFlagBits::eAllGraphics, 1)
+            .image(1, vk::DescriptorType::eCombinedImageSampler,
+                   vk::ShaderStageFlagBits::eFragment, 1)
+            .createUnique(device)
+            .release();
 
     vk::PipelineLayoutCreateInfo pipeline_info;
     pipeline_info.setSetLayouts(g_descriptor_layout)
@@ -590,7 +599,20 @@ auto main() -> int {
 
     std::vector<vk::DescriptorPoolSize> pool_sizes;
     pool_sizes.emplace_back(vk::DescriptorType::eStorageBuffer, 1);
-    // pool_sizes.emplace_back(vk::DescriptorType::eStorageImage, 3);
+    pool_sizes.emplace_back(vk::DescriptorType::eCombinedImageSampler, 1);
+
+    // Create an arbitrary number of descriptors in a pool.
+    // Allow the descriptors to be freed, possibly not optimal behaviour.
+    vk::DescriptorPoolCreateInfo descriptor_pool_info{};
+    descriptor_pool_info
+        .setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet)
+        .setPoolSizes(pool_sizes)
+        .setMaxSets(1);
+    vk::DescriptorPool descriptor_pool =
+        device.createDescriptorPool(descriptor_pool_info);
+    defer {
+        device.destroyDescriptorPool(descriptor_pool);
+    };
 
     // 128 bytes storage buffer.
     g_buffer = vku::GenericBuffer(device, g_physical_device.memory_properties,
@@ -600,41 +622,19 @@ auto main() -> int {
     g_buffer.upload(device, g_physical_device.memory_properties, g_command_pool,
                     g_graphics_queue, bindless_data);
 
-    // vku::TextureImage2D tex_color(device,
-    // g_physical_device.memory_properties,
-    //                               game_width, game_height);
-    // vku::TextureImage2D tex_depth(device,
-    // g_physical_device.memory_properties,
-    //                               game_width, game_height);
-    // vku::TextureImage2D tex_id(device, g_physical_device.memory_properties,
-    //                            game_width, game_height);
-
-    // Create an arbitrary number of descriptors in a pool.
-    // Allow the descriptors to be freed, possibly not optimal behaviour.
-    vk::DescriptorPoolCreateInfo descriptor_pool_info{};
-    descriptor_pool_info.flags =
-        vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
-    descriptor_pool_info.maxSets = 1;
-    descriptor_pool_info.poolSizeCount = pool_sizes.size();
-    descriptor_pool_info.pPoolSizes = pool_sizes.data();
-    auto descriptor_pool =
-        device.createDescriptorPoolUnique(descriptor_pool_info);
-
     vku::DescriptorSetMaker dsm{};
     dsm.layout(g_descriptor_layout);
-    g_descriptor_set = dsm.create(device, descriptor_pool.get()).front();
+    g_descriptor_set = dsm.create(device, descriptor_pool).front();
 
     vku::DescriptorSetUpdater dsu;
     dsu.beginDescriptorSet(g_descriptor_set)
         .beginBuffers(0, 0, vk::DescriptorType::eStorageBuffer)
         .buffer(g_buffer.buffer(), 0, vk::WholeSize)
-        // .beginImages(1, 0, vk::DescriptorType::eUniformBuffer)
-        // .image(id_sampler, g_id_image.imageView(),
-        // vk::ImageLayout::eShaderReadOnlyOptimal)
+        .beginImages(1, 0, vk::DescriptorType::eCombinedImageSampler)
+        .image(nearest_sampler, g_id_image.imageView(),
+               vk::ImageLayout::eShaderReadOnlyOptimal)
         .update(device);
     assert(dsu.ok());
-
-    // Make the resources, then attach them, then bind them.
 
     // Compile and link shaders.
     shader_objects.add_vertex_shader(getexepath().parent_path() /

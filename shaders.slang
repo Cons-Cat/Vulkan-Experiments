@@ -96,10 +96,7 @@ struct moo {
     float4 a;
 }
 
-// [vk::binding(0,0)]
-// uniform float4 buffer[4];
-
-[vk::binding(0,0)]
+[vk::binding(0, 0)]
 RWStructuredBuffer<moo> buffer;
 
 // Generate a demo triangle.
@@ -134,17 +131,15 @@ struct frag_out {
 };
 
 [shader("fragment")]
-frag_out demo_fragment_main(
-    )
-{
+frag_out demo_fragment_main() {
     frag_out output = {};
     output.color = {0,1,0,1};
     output.id = 32000;
     return output;
 }
 
-// [vk::binding(0,1)]
-// Sampler2D textures[1];
+[vk::binding(1, 0)]
+Sampler2D<uint32_t> textures;
 
 // Generate a triangle that covers the screen.
 [shader("vertex")]
@@ -154,8 +149,7 @@ float4 composite_vertex_main(uint32_t vertex : SV_VertexID) : SV_Position {
 }
 
 [shader("fragment")]
-float4 composite_fragment_main(float4 color) : SV_Target0
-{
-    // textures[0].Sample(color.xy, {0, 0}, 0, 0);
-    return {1,1,1,1};
+float4 composite_fragment_main(float2 uv : SV_Position)
+: SV_Target0 {
+    return textures.Sample(uv);
 }
