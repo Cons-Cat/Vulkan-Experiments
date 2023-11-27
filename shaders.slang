@@ -104,24 +104,52 @@ RWStructuredBuffer<moo> buffer;
 
 // Generate a demo triangle.
 [shader("vertex")]
-float4 demo_vertex_main(in uint32_t id : SV_VertexID, out float3 color : SV_Target0)
+float4 demo_vertex_main(
+    uint32_t vertex : SV_VertexID,
+    out float3 color
+    )
 : SV_Position {
-float2 positions[3] = {
-    float2 (0.0, -0.5), float2 (0.5, 0.5), float2 (-0.5, 0.5),
-};
+    float2 positions[3] = {
+        float2 (0.0, -0.5), float2 (0.5, 0.5), float2 (-0.5, 0.5),
+    };
 
-float3 colors[3] = {
-    float3 (1.0, 0.0, 0.0), float3 (0.0, 1.0, 0.0), float3 (0.0, 0.0, 1.0),
-};
+    float3 colors[3] = {
+       float3 (1.0, 0.0, 0.0), float3 (0.0, 1.0, 0.0), float3 (0.0, 0.0, 1.0),
+    };
 
-    color = buffer[0].a.xyz;
-    buffer[0].a = {1,1,1,1};
-    //color = colors[id];
-    return float4(positions[id],0,1);
+    //color = buffer[0].a.rgb;
+
+    //buffer[0].a = {1,1,1,1};
+    color = colors[vertex];
+
+    // Extract hard coded triangle position.
+    return float4(positions[vertex],0,1);
 }
 
 [shader("fragment")]
-float4 demo_fragment_main(float4 color : SV_Target0, float4 id : SV_Position)
+float4 demo_fragment_main(
+    inout float4 color,
+    out uint8_t id : SV_Target1
+    //in float4 vertex : SV_Position
+    )
+: SV_Target0 {
+    id = 1;
+    return color;
+}
+
+// [vk::binding(0,1)]
+// Sampler2D textures[1];
+
+// Generate a triangle that covers the screen.
+[shader("vertex")]
+float4 composite_vertex_main(uint32_t vertex : SV_VertexID) : SV_Position {
+    float2 uv = float2((vertex << 1) & 2, vertex & 2);
+    return float4(uv * float2(2, -2) + float2(-1, 1), 0, 1);
+}
+
+[shader("fragment")]
+float4 composite_fragment_main(float4 color) : SV_Target0
 {
-    return buffer[0].a;
+    // textures[0].Sample(color.xy, {0, 0}, 0, 0);
+    return {1,1,1,1};
 }

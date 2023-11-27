@@ -33,8 +33,8 @@ inline uint32_t g_present_queue_index;
 inline vkb::Swapchain g_swapchain;
 inline std::vector<VkImage> g_swapchain_images{};
 inline std::vector<VkImageView> g_swapchain_views{};
-// std::vector<vku::ColorAttachmentImage> g_swapchain_images;
 inline vku::DepthStencilImage g_depth_image;
+inline vku::ColorAttachmentImage g_id_image;
 
 vku::GenericBuffer g_buffer;
 
@@ -70,9 +70,11 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
         true, true, true, &dynamic_rendering_feature);
     vk::PhysicalDeviceShaderObjectFeaturesEXT shader_object_feature(
         true, &device_address_feature);
+    vk::PhysicalDeviceShaderFloat16Int8FeaturesKHR shader_int_feature(
+        false, true, &shader_object_feature);
 
     vkb::DeviceBuilder device_builder{g_physical_device};
-    device_builder.add_pNext(&shader_object_feature);
+    device_builder.add_pNext(&shader_int_feature);
     auto maybe_device = device_builder.build();
     if (!maybe_device) {
         std::cout << maybe_device.error().message() << '\n';
@@ -229,7 +231,7 @@ void recreate_swapchain();
 void render_and_present() {
     static uint32_t frame = 0;
 
-    auto timeout = std::numeric_limits<uint64_t>::max();
+    constexpr auto timeout = std::numeric_limits<uint64_t>::max();
 
     // Wait for host to signal the fence for this swapchain frame.
     VULKAN_HPP_DEFAULT_DISPATCHER.vkWaitForFences(
@@ -302,7 +304,6 @@ void set_all_render_state(vk::CommandBuffer cmd) {
     cmd.setLineWidth(1.0);
     cmd.setCullMode(vk::CullModeFlagBits::eNone);
     cmd.setPolygonModeEXT(vk::PolygonMode::eFill);
-    cmd.setDepthWriteEnable(vk::False);
     cmd.setRasterizerDiscardEnable(vk::False);
     cmd.setRasterizationSamplesEXT(vk::SampleCountFlagBits::e1);
 
@@ -317,22 +318,20 @@ void set_all_render_state(vk::CommandBuffer cmd) {
 
     cmd.setDepthClampEnableEXT(vk::False);
 
-    cmd.setDepthBiasEnable(vk::False);
-    cmd.setDepthTestEnable(vk::False);
-    cmd.setDepthWriteEnable(vk::False);
-    cmd.setDepthBoundsTestEnable(vk::False);
+    cmd.setDepthBiasEnableEXT(vk::False);
+    cmd.setDepthTestEnableEXT(vk::True);
+    cmd.setDepthWriteEnableEXT(vk::True);
+    cmd.setDepthBoundsTestEnableEXT(vk::False);
 
     cmd.setFrontFace(vk::FrontFace::eClockwise);
-    cmd.setDepthCompareOp(vk::CompareOp::eLessOrEqual);
+    cmd.setDepthCompareOp(vk::CompareOp::eLess);
 
     cmd.setStencilTestEnable(vk::False);
 
     cmd.setLogicOpEnableEXT(vk::False);
 
-    // cmd.setColorBlendEnableEXT(0, 1, vk::False);
-    VkBool32 color_blend = VK_FALSE;
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdSetColorBlendEnableEXT(cmd, 0, 1,
-                                                              &color_blend);
+    cmd.setColorBlendEnableEXT(0, vk::False);
+    cmd.setColorBlendEnableEXT(1, vk::False);
 
     auto color_write_mask = static_cast<vk::ColorComponentFlags>(
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
@@ -362,9 +361,8 @@ void record_rendering(uint32_t const frame) {
 
     // TODO: Add a barrier.
 
-    vk::ClearColorValue clear_color = {
-        std::array{1.f, 0.f, 1.f, 0.f}
-    };
+    vk::ClearColorValue clear_color = {1.f, 0.f, 1.f, 0.f};
+    vk::ClearColorValue black_clear_color = {0, 0, 0, 1};
 
     vk::Viewport viewport;
     viewport.setWidth(game_width)
@@ -383,19 +381,36 @@ void record_rendering(uint32_t const frame) {
 
     vk::RenderingAttachmentInfoKHR color_attachment_info;
     color_attachment_info.setClearValue(clear_color)
-        .setImageLayout(vk::ImageLayout::eAttachmentOptimal)
+        .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
         .setImageView(g_swapchain_views[frame])
         .setLoadOp(vk::AttachmentLoadOp::eClear)
+        .setStoreOp(vk::AttachmentStoreOp::eStore);
+
+    vk::RenderingAttachmentInfoKHR depth_attachment_info;
+    depth_attachment_info
+        .setImageLayout(vk::ImageLayout::eDepthAttachmentOptimal)
+        .setImageView(g_depth_image.imageView())
+        .setLoadOp(vk::AttachmentLoadOp::eDontCare)
         .setStoreOp(vk::AttachmentStoreOp::eStore)
-        .setClearValue(clear_color);
+        .setResolveMode(vk::ResolveModeFlagBits::eNone);
+
+    vk::RenderingAttachmentInfoKHR id_attachment_info;
+    id_attachment_info.setClearValue(black_clear_color)
+        .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
+        .setImageView(g_id_image.imageView())
+        .setLoadOp(vk::AttachmentLoadOp::eClear)
+        .setStoreOp(vk::AttachmentStoreOp::eStore)
+        .setResolveMode(vk::ResolveModeFlagBits::eNone);
+
+    vk::RenderingAttachmentInfo attachments[] = {color_attachment_info,
+                                                 id_attachment_info};
 
     vk::RenderingInfo rendering_info;
     rendering_info.setRenderArea(render_area)
         .setLayerCount(1)
-        .setPColorAttachments(&color_attachment_info)
-        .setColorAttachmentCount(1);
+        .setColorAttachments(attachments)
+        .setPDepthAttachment(&depth_attachment_info);
 
-    //
     VkImageMemoryBarrier const render_memory_barrier{
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
@@ -420,23 +435,30 @@ void record_rendering(uint32_t const frame) {
         &render_memory_barrier  // pImageMemoryBarriers
     );
 
-    // g_swapchain_images[frame].setLayout(
-    //     cmd, vk::ImageLayout::eColorAttachmentOptimal);
+    g_depth_image.setLayout(cmd, vk::ImageLayout::eDepthAttachmentOptimal,
+                            vk::ImageAspectFlagBits::eDepth);
+    g_id_image.setLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
 
     cmd.beginRendering(rendering_info);
 
     set_all_render_state(cmd);
 
+    // Draw world.
     shader_objects.bind_vertex(cmd, 0);
     shader_objects.bind_fragment(cmd, 1);
 
     cmd.draw(3, 1, 0, 0);
 
+    // Post processing.
+    // shader_objects.bind_vertex(cmd, 2);
+    // shader_objects.bind_fragment(cmd, 3);
+
+    // cmd.draw(3, 1, 0, 0);
+
     cmd.endRendering();
 
     // swapchain_images[frame].setLayout(cmd, vk::ImageLayout::ePresentSrcKHR);
 
-    //
     VkImageMemoryBarrier const present_memory_barrier{
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
@@ -482,6 +504,16 @@ struct my_window final : public WSIWindow {
     // Override virtual functions.
     void OnResizeEvent(uint16_t width, uint16_t height) final {
     }
+
+    void OnKeyEvent(eAction action, eKeycode keycode) final {
+        if (action == eDOWN) {
+            switch (keycode) {
+                case KEY_Escape:
+                    Close();
+                    break;
+            }
+        }
+    }
 };
 
 auto main() -> int {
@@ -513,14 +545,28 @@ auto main() -> int {
     defer {
         vkb::destroy_swapchain(g_swapchain);
     };
-    g_depth_image =
-        vku::DepthStencilImage(device, g_physical_device.memory_properties,
-                               game_width, game_height, depth_format);
 
     create_command_pool();
     defer {
         device.destroyCommandPool(g_command_pool);
     };
+
+    g_depth_image =
+        vku::DepthStencilImage(device, g_physical_device.memory_properties,
+                               game_width, game_height, depth_format);
+    // std::vector<uint8_t> depth(static_cast<size_t>(game_width) *
+    // game_height); g_depth_image.upload(device, depth, g_command_pool,
+    //                      g_physical_device.memory_properties,
+    //                      g_graphics_queue,
+    //                      vk::ImageLayout::eDepthAttachmentOptimal);
+
+    g_id_image =
+        vku::ColorAttachmentImage(device, g_physical_device.memory_properties,
+                                  game_width, game_height, vk::Format::eR8Uint);
+    // std::vector<uint8_t> colors(static_cast<size_t>(game_width) *
+    // game_height); g_id_image.upload(device, colors, g_command_pool,
+    //                   g_physical_device.memory_properties, g_graphics_queue,
+    //                      vk::ImageLayout::eColorAttachmentOptimal);
 
     create_sync_objects();
     defer {
@@ -542,6 +588,7 @@ auto main() -> int {
                                       vk::ShaderStageFlagBits::eAllGraphics, 1)
                               .createUnique(device)
                               .release();
+
     // dslm.image(
     //     1U, vk::DescriptorType::eStorageImage,
     //     vk::ShaderStageFlagBits::eVertex |
@@ -564,12 +611,14 @@ auto main() -> int {
     g_buffer.upload(device, g_physical_device.memory_properties, g_command_pool,
                     g_graphics_queue, bindless_data);
 
-    vku::TextureImage2D tex_color(device, g_physical_device.memory_properties,
-                                  game_width, game_height);
-    vku::TextureImage2D tex_depth(device, g_physical_device.memory_properties,
-                                  game_width, game_height);
-    vku::TextureImage2D tex_id(device, g_physical_device.memory_properties,
-                               game_width, game_height);
+    // vku::TextureImage2D tex_color(device,
+    // g_physical_device.memory_properties,
+    //                               game_width, game_height);
+    // vku::TextureImage2D tex_depth(device,
+    // g_physical_device.memory_properties,
+    //                               game_width, game_height);
+    // vku::TextureImage2D tex_id(device, g_physical_device.memory_properties,
+    //                            game_width, game_height);
 
     // Create an arbitrary number of descriptors in a pool.
     // Allow the descriptors to be freed, possibly not optimal behaviour.
@@ -591,7 +640,8 @@ auto main() -> int {
         .beginBuffers(0, 0, vk::DescriptorType::eStorageBuffer)
         .buffer(g_buffer.buffer(), 0, vk::WholeSize)
         // .beginImages(1, 0, vk::DescriptorType::eUniformBuffer)
-        // .image()
+        // .image(id_sampler, g_id_image.imageView(),
+        // vk::ImageLayout::eShaderReadOnlyOptimal)
         .update(device);
     assert(dsu.ok());
 
@@ -602,6 +652,11 @@ auto main() -> int {
                                      "../vertex.spv");
     shader_objects.add_fragment_shader(getexepath().parent_path() /
                                        "../fragment.spv");
+
+    shader_objects.add_vertex_shader(getexepath().parent_path() /
+                                     "../composite_vertex.spv");
+    shader_objects.add_fragment_shader(getexepath().parent_path() /
+                                       "../composite_fragment.spv");
     defer {
         shader_objects.destroy();
     };
@@ -612,11 +667,12 @@ auto main() -> int {
 
     // Game loop.
     while (win.ProcessEvents()) {
-        if (win.GetKeyState(eKeycode::KEY_Escape)) {
-            win.Close();
-        }
+        // bindless_data = {1, 0, 0, 0};
+        g_buffer.upload(device, g_physical_device.memory_properties,
+                        g_command_pool, g_graphics_queue, bindless_data);
+
         render_and_present();
     }
 
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkDeviceWaitIdle(device);
+    device.waitIdle();
 }
