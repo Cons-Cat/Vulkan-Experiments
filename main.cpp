@@ -33,6 +33,7 @@ inline uint32_t g_present_queue_index;
 inline vkb::Swapchain g_swapchain;
 inline std::vector<VkImage> g_swapchain_images{};
 inline std::vector<VkImageView> g_swapchain_views{};
+inline vku::ColorAttachmentImage g_color_image;
 inline vku::DepthStencilImage g_depth_image;
 inline vku::ColorAttachmentImage g_id_image;
 
@@ -338,6 +339,10 @@ void set_all_render_state(vk::CommandBuffer cmd) {
         VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT);
     cmd.setColorWriteMaskEXT(0, 1, &color_write_mask);
 
+    auto id_write_mask =
+        static_cast<vk::ColorComponentFlags>(VK_COLOR_COMPONENT_R_BIT);
+    cmd.setColorWriteMaskEXT(1, 1, &id_write_mask);
+
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, g_pipeline_layout,
                            0, g_descriptor_set, nullptr);
 }
@@ -346,20 +351,6 @@ void record_rendering(uint32_t const frame) {
     vk::CommandBuffer& cmd = g_command_buffers[frame];
     vk::CommandBufferBeginInfo begin_info;
     cmd.begin(begin_info);
-
-    // cmd.updateBuffer(g_buffer.buffer(), 0,
-    //                  sizeof(int) * std::size(bindless_data),
-    //                  std::data(bindless_data));
-    // g_buffer.barrier(
-    //     cmd,
-    //     vk::PipelineStageFlagBits::eHost,            // srcStageMask
-    //     vk::PipelineStageFlagBits::eFragmentShader,  // dstStageMask
-    //     vk::DependencyFlagBits::eByRegion,           // dependencyFlags
-    //     vk::AccessFlagBits::eHostWrite,              // srcAccessMask
-    //     vk::AccessFlagBits::eShaderRead,             // dstAccessMask
-    //     g_graphics_queue_index, g_graphics_queue_index);
-
-    // TODO: Add a barrier.
 
     vk::ClearColorValue clear_color = {1.f, 0.f, 1.f, 0.f};
     vk::ClearColorValue black_clear_color = {0, 0, 0, 1};
@@ -383,7 +374,7 @@ void record_rendering(uint32_t const frame) {
     vk::RenderingAttachmentInfoKHR color_attachment_info;
     color_attachment_info.setClearValue(clear_color)
         .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
-        .setImageView(g_swapchain_views[frame])
+        .setImageView(g_color_image.imageView())
         .setLoadOp(vk::AttachmentLoadOp::eClear)
         .setStoreOp(vk::AttachmentStoreOp::eStore);
 
@@ -411,30 +402,7 @@ void record_rendering(uint32_t const frame) {
         .setColorAttachments(attachments)
         .setPDepthAttachment(&depth_attachment_info);
 
-    VkImageMemoryBarrier const render_memory_barrier{
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        .image = g_swapchain_images[frame],
-        .subresourceRange = {
-                             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                             .baseMipLevel = 0,
-                             .levelCount = 1,
-                             .baseArrayLayer = 0,
-                             .layerCount = 1,
-                             }
-    };
-
-    vkCmdPipelineBarrier(
-        cmd,
-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,              // srcStageMask
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,  // dstStageMask
-        0, 0, nullptr, 0, nullptr,
-        1,                      // imageMemoryBarrierCount
-        &render_memory_barrier  // pImageMemoryBarriers
-    );
-
+    g_color_image.setLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
     g_depth_image.setLayout(cmd, vk::ImageLayout::eDepthAttachmentOptimal,
                             vk::ImageAspectFlagBits::eDepth);
     g_id_image.setLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
@@ -452,7 +420,45 @@ void record_rendering(uint32_t const frame) {
     cmd.endRendering();
 
     // Post processing.
+    g_color_image.setLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
     g_id_image.setLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
+
+    cmd.setDepthTestEnable(vk::False);
+    cmd.setDepthWriteEnable(vk::False);
+
+    // Transition swapchain image layout to color write.
+    VkImageMemoryBarrier const render_memory_barrier{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .image = g_swapchain_images[frame],
+        .subresourceRange = {
+                             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                             .baseMipLevel = 0,
+                             .levelCount = 1,
+                             .baseArrayLayer = 0,
+                             .layerCount = 1,
+                             }
+    };
+    vkCmdPipelineBarrier(
+        cmd,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,              // srcStageMask
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,  // dstStageMask
+        0, 0, nullptr, 0, nullptr,
+        1,                      // imageMemoryBarrierCount
+        &render_memory_barrier  // pImageMemoryBarriers
+    );
+
+    vk::RenderingAttachmentInfoKHR swapchain_attachment_info;
+    swapchain_attachment_info
+        .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
+        .setImageView(g_swapchain_views[frame])
+        .setLoadOp(vk::AttachmentLoadOp::eDontCare)
+        .setStoreOp(vk::AttachmentStoreOp::eStore);
+
+    rendering_info.setColorAttachments(swapchain_attachment_info)
+        .setPDepthAttachment(nullptr);
 
     cmd.beginRendering(rendering_info);
 
@@ -463,6 +469,7 @@ void record_rendering(uint32_t const frame) {
 
     cmd.endRendering();
 
+    // Transition swapchain image layout to present.
     VkImageMemoryBarrier const present_memory_barrier{
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
@@ -477,7 +484,6 @@ void record_rendering(uint32_t const frame) {
                              .layerCount = 1,
                              }
     };
-
     vkCmdPipelineBarrier(
         cmd,
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,  // srcStageMask
@@ -555,6 +561,10 @@ auto main() -> int {
         device.destroyCommandPool(g_command_pool);
     };
 
+    g_color_image = vku::ColorAttachmentImage(
+        device, g_physical_device.memory_properties, game_width, game_height,
+        vk::Format::eR32G32B32A32Sfloat);
+
     g_depth_image =
         vku::DepthStencilImage(device, g_physical_device.memory_properties,
                                game_width, game_height, depth_format);
@@ -589,6 +599,8 @@ auto main() -> int {
                     vk::ShaderStageFlagBits::eAllGraphics, 1)
             .image(1, vk::DescriptorType::eCombinedImageSampler,
                    vk::ShaderStageFlagBits::eFragment, 1)
+            .image(2, vk::DescriptorType::eCombinedImageSampler,
+                   vk::ShaderStageFlagBits::eFragment, 1)
             .createUnique(device)
             .release();
 
@@ -599,7 +611,7 @@ auto main() -> int {
 
     std::vector<vk::DescriptorPoolSize> pool_sizes;
     pool_sizes.emplace_back(vk::DescriptorType::eStorageBuffer, 1);
-    pool_sizes.emplace_back(vk::DescriptorType::eCombinedImageSampler, 1);
+    pool_sizes.emplace_back(vk::DescriptorType::eCombinedImageSampler, 2);
 
     // Create an arbitrary number of descriptors in a pool.
     // Allow the descriptors to be freed, possibly not optimal behaviour.
@@ -630,7 +642,12 @@ auto main() -> int {
     dsu.beginDescriptorSet(g_descriptor_set)
         .beginBuffers(0, 0, vk::DescriptorType::eStorageBuffer)
         .buffer(g_buffer.buffer(), 0, vk::WholeSize)
+
         .beginImages(1, 0, vk::DescriptorType::eCombinedImageSampler)
+        .image(nearest_sampler, g_color_image.imageView(),
+               vk::ImageLayout::eShaderReadOnlyOptimal)
+
+        .beginImages(2, 0, vk::DescriptorType::eCombinedImageSampler)
         .image(nearest_sampler, g_id_image.imageView(),
                vk::ImageLayout::eShaderReadOnlyOptimal)
         .update(device);
