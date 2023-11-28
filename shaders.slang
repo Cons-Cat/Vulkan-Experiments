@@ -126,21 +126,30 @@ float4 demo_vertex_main(
 struct frag_out {
     [vk::location(0)]
     float4 color : SV_Target0;
+
     [vk::location(1)]
-    uint32_t id : SV_Target1;
+    float4 normal : SV_Target1;
+
+    [vk::location(2)]
+    uint32_t id : SV_Target2;
 };
 
 [shader("fragment")]
 frag_out demo_fragment_main(in float3 color) {
     frag_out output = {};
     output.color = float4(color, 1);
+    output.normal = float4(color.xy, 0, 1);
     output.id = 32000;
     return output;
 }
 
 [vk::binding(1, 0)]
 Sampler2D<float4> color_texture;
+
 [vk::binding(2, 0)]
+Sampler2D<float4> normal_texture;
+
+[vk::binding(3, 0)]
 Sampler2D<uint32_t> id_texture;
 
 // Generate a triangle that covers the screen.
@@ -156,6 +165,6 @@ float4 composite_vertex_main(uint32_t vertex : SV_VertexID)
 float4 composite_fragment_main(float2 uv : SV_Position)
 : SV_Target0 {
     // return color_texture.Sample(uv);
-    return color_texture.Load(int3(uv.x,uv.y,0));
 
+    return color_texture.Load(int3(uv.x, uv.y, 0));
 }

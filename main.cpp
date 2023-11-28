@@ -35,8 +35,9 @@ inline vkb::Swapchain g_swapchain;
 inline std::vector<VkImage> g_swapchain_images{};
 inline std::vector<VkImageView> g_swapchain_views{};
 inline vku::ColorAttachmentImage g_color_image;
-inline vku::DepthStencilImage g_depth_image;
+inline vku::ColorAttachmentImage g_normal_image;
 inline vku::ColorAttachmentImage g_id_image;
+inline vku::DepthStencilImage g_depth_image;
 
 vku::GenericBuffer g_buffer;
 
@@ -342,15 +343,20 @@ void set_all_render_state(vk::CommandBuffer cmd) {
 
     cmd.setColorBlendEnableEXT(0, vk::False);
     cmd.setColorBlendEnableEXT(1, vk::False);
+    cmd.setColorBlendEnableEXT(2, vk::False);
 
-    auto color_write_mask = static_cast<vk::ColorComponentFlags>(
-        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-        VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT);
+    constexpr vk::Flags color_write_mask =
+        vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+        vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
     cmd.setColorWriteMaskEXT(0, 1, &color_write_mask);
 
-    auto id_write_mask =
-        static_cast<vk::ColorComponentFlags>(VK_COLOR_COMPONENT_R_BIT);
-    cmd.setColorWriteMaskEXT(1, 1, &id_write_mask);
+    constexpr vk::Flags normal_write_mask =
+        vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
+        vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+    cmd.setColorWriteMaskEXT(1, 1, &normal_write_mask);
+
+    constexpr vk::Flags id_write_mask = vk::ColorComponentFlagBits::eR;
+    cmd.setColorWriteMaskEXT(2, 1, &id_write_mask);
 
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, g_pipeline_layout,
                            0, g_descriptor_set, nullptr);
@@ -387,6 +393,13 @@ void record_rendering(uint32_t const frame) {
         .setLoadOp(vk::AttachmentLoadOp::eClear)
         .setStoreOp(vk::AttachmentStoreOp::eStore);
 
+    vk::RenderingAttachmentInfoKHR normal_attachment_info;
+    normal_attachment_info.setClearValue(black_clear_color)
+        .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
+        .setImageView(g_normal_image.imageView())
+        .setLoadOp(vk::AttachmentLoadOp::eClear)
+        .setStoreOp(vk::AttachmentStoreOp::eStore);
+
     vk::RenderingAttachmentInfoKHR id_attachment_info;
     id_attachment_info.setClearValue(black_clear_color)
         .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
@@ -395,7 +408,8 @@ void record_rendering(uint32_t const frame) {
         .setStoreOp(vk::AttachmentStoreOp::eStore)
         .setResolveMode(vk::ResolveModeFlagBits::eNone);
 
-    std::array attachments = {color_attachment_info, id_attachment_info};
+    std::array attachments = {color_attachment_info, normal_attachment_info,
+                              id_attachment_info};
 
     vk::RenderingAttachmentInfoKHR depth_attachment_info;
     depth_attachment_info.setClearValue(depth_clear_color)
@@ -412,9 +426,10 @@ void record_rendering(uint32_t const frame) {
         .setPDepthAttachment(&depth_attachment_info);
 
     g_color_image.setLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
+    g_normal_image.setLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
+    g_id_image.setLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
     g_depth_image.setLayout(cmd, vk::ImageLayout::eDepthAttachmentOptimal,
                             vk::ImageAspectFlagBits::eDepth);
-    g_id_image.setLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
 
     cmd.beginRendering(rendering_info);
 
@@ -430,6 +445,7 @@ void record_rendering(uint32_t const frame) {
 
     // Post processing.
     g_color_image.setLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
+    g_normal_image.setLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
     g_id_image.setLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
 
     cmd.setDepthTestEnable(vk::False);
@@ -574,19 +590,20 @@ auto main() -> int {
         device, g_physical_device.memory_properties, game_width, game_height,
         vk::Format::eR32G32B32A32Sfloat);
 
-    g_depth_image =
-        vku::DepthStencilImage(device, g_physical_device.memory_properties,
-                               game_width, game_height, depth_format);
+    g_normal_image = vku::ColorAttachmentImage(
+        device, g_physical_device.memory_properties, game_width, game_height,
+        vk::Format::eR32G32B32A32Sfloat);
 
     g_id_image = vku::ColorAttachmentImage(
         device, g_physical_device.memory_properties, game_width, game_height,
         vk::Format::eR32Uint);
 
+    g_depth_image =
+        vku::DepthStencilImage(device, g_physical_device.memory_properties,
+                               game_width, game_height, depth_format);
+
     vku::SamplerMaker sampler_maker;
-    vk::Sampler nearest_sampler =
-        sampler_maker
-            //.mipmapMode(vk::SamplerMipmapMode::eLinear)
-            .create(device);
+    vk::Sampler nearest_sampler = sampler_maker.create(device);
 
     create_sync_objects();
     defer {
@@ -611,6 +628,8 @@ auto main() -> int {
                    vk::ShaderStageFlagBits::eFragment, 1)
             .image(2, vk::DescriptorType::eCombinedImageSampler,
                    vk::ShaderStageFlagBits::eFragment, 1)
+            .image(3, vk::DescriptorType::eCombinedImageSampler,
+                   vk::ShaderStageFlagBits::eFragment, 1)
             .createUnique(device)
             .release();
 
@@ -621,7 +640,7 @@ auto main() -> int {
 
     std::vector<vk::DescriptorPoolSize> pool_sizes;
     pool_sizes.emplace_back(vk::DescriptorType::eStorageBuffer, 1);
-    pool_sizes.emplace_back(vk::DescriptorType::eCombinedImageSampler, 2);
+    pool_sizes.emplace_back(vk::DescriptorType::eCombinedImageSampler, 3);
 
     // Create an arbitrary number of descriptors in a pool.
     // Allow the descriptors to be freed, possibly not optimal behaviour.
@@ -658,6 +677,10 @@ auto main() -> int {
                vk::ImageLayout::eShaderReadOnlyOptimal)
 
         .beginImages(2, 0, vk::DescriptorType::eCombinedImageSampler)
+        .image(nearest_sampler, g_normal_image.imageView(),
+               vk::ImageLayout::eShaderReadOnlyOptimal)
+
+        .beginImages(3, 0, vk::DescriptorType::eCombinedImageSampler)
         .image(nearest_sampler, g_id_image.imageView(),
                vk::ImageLayout::eShaderReadOnlyOptimal)
         .update(device);
