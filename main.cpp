@@ -23,6 +23,7 @@ inline constexpr auto depth_format = vk::Format::eD32Sfloat;
 inline std::array<float, 4> bindless_data = {1, 1, 0, 1};
 
 inline vkb::PhysicalDevice g_physical_device;
+// This is optional to defer initialization:
 inline std::optional<vkb::SwapchainBuilder> swapchain_builder;
 
 inline vk::Queue g_graphics_queue;
@@ -66,13 +67,19 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     g_physical_device = maybe_physical_device.value();
     std::cout << g_physical_device.name << '\n';
 
-    vk::PhysicalDeviceDynamicRenderingFeatures dynamic_rendering_feature(true);
+    // vk::StructureChain physical_features{
+    //     vk::PhysicalDeviceBufferDeviceAddressFeatures(vk::True, vk::True,
+    //                                                   vk::True),
+    //     vk::PhysicalDeviceDynamicRenderingFeatures(vk::True),
+    //     vk::PhysicalDeviceShaderObjectFeaturesEXT(vk::True),
+    // };
+
+    vk::PhysicalDeviceDynamicRenderingFeatures dynamic_rendering_feature(
+        vk::True);
     vk::PhysicalDeviceBufferDeviceAddressFeaturesKHR device_address_feature(
-        true, true, true, &dynamic_rendering_feature);
+        vk::True, vk::True, vk::True, &dynamic_rendering_feature);
     vk::PhysicalDeviceShaderObjectFeaturesEXT shader_object_feature(
-        true, &device_address_feature);
-    // vk::PhysicalDeviceShaderFloat16Int8FeaturesKHR shader_int_feature(
-    //     false, true, &shader_object_feature);
+        vk::True, &device_address_feature);
 
     vkb::DeviceBuilder device_builder{g_physical_device};
     device_builder.add_pNext(&shader_object_feature);
@@ -99,6 +106,8 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
 inline vk::Device device;
 
 void create_swapchain() {
+    assert(swapchain_builder);
+
     // Initialize swapchain.
     auto maybe_swapchain =
         swapchain_builder->set_old_swapchain(g_swapchain).build();
@@ -575,7 +584,8 @@ auto main() -> int {
 
     vku::SamplerMaker sampler_maker;
     vk::Sampler nearest_sampler =
-        sampler_maker.mipmapMode(vk::SamplerMipmapMode::eNearest)
+        sampler_maker
+            //.mipmapMode(vk::SamplerMipmapMode::eLinear)
             .create(device);
 
     create_sync_objects();

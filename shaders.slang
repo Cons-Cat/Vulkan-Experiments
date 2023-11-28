@@ -131,9 +131,9 @@ struct frag_out {
 };
 
 [shader("fragment")]
-frag_out demo_fragment_main() {
+frag_out demo_fragment_main(in float3 color) {
     frag_out output = {};
-    output.color = {0,1,0,1};
+    output.color = float4(color, 1);
     output.id = 32000;
     return output;
 }
@@ -145,15 +145,17 @@ Sampler2D<uint32_t> id_texture;
 
 // Generate a triangle that covers the screen.
 [shader("vertex")]
-float4 composite_vertex_main(uint32_t vertex : SV_VertexID) : SV_Position {
+float4 composite_vertex_main(uint32_t vertex : SV_VertexID)
+: SV_Position {
     float2 uv = float2((vertex << 1) & 2, vertex & 2);
-    return float4(uv, 0, 1);
-    //return float4(uv * float2(2, -2) + float2(-1, 1), 0, 1);
+    //return float4(uv, 0, 1);
+    return float4(uv * float2(2, -2) + float2(-1, 1), 0, 1);
 }
 
 [shader("fragment")]
 float4 composite_fragment_main(float2 uv : SV_Position)
 : SV_Target0 {
-    return float4(id_texture.Sample(uv).r, 0, 0, 1);
     // return color_texture.Sample(uv);
+    return color_texture.Load(int3(uv.x,uv.y,0));
+
 }
