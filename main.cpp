@@ -177,6 +177,10 @@ struct shader_objects_t {
         add_shader(shader_path, vk::ShaderStageFlagBits::eFragment);
     }
 
+    void add_compute_shader(std::filesystem::path const& shader_path) {
+        add_shader(shader_path, vk::ShaderStageFlagBits::eCompute);
+    }
+
     void bind_vertex(vk::CommandBuffer cmd, uint32_t index) {
         auto frag_bit = vk::ShaderStageFlagBits::eVertex;
         cmd.bindShadersEXT(1, &frag_bit, &objects[index]);
@@ -185,6 +189,11 @@ struct shader_objects_t {
     void bind_fragment(vk::CommandBuffer cmd, uint32_t index) {
         auto frag_bit = vk::ShaderStageFlagBits::eFragment;
         cmd.bindShadersEXT(1, &frag_bit, &objects[index]);
+    }
+
+    void bind_compute(vk::CommandBuffer cmd, uint32_t index) {
+        auto comp_bit = vk::ShaderStageFlagBits::eCompute;
+        cmd.bindShadersEXT(1, &comp_bit, &objects[index]);
     }
 
     void destroy() {
