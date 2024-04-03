@@ -120,7 +120,7 @@ float4 demo_vertex_main(
     color = colors[vertex];
 
     // Extract hard coded triangle position.
-    return float4(positions[vertex],0,1);
+    return float4(positions[vertex], 0, 1);
 }
 
 struct frag_out {
@@ -164,7 +164,48 @@ float4 composite_vertex_main(uint32_t vertex : SV_VertexID)
 [shader("fragment")]
 float4 composite_fragment_main(float2 uv : SV_Position)
 : SV_Target0 {
-    // return color_texture.Sample(uv);
+    uint adjacencies = 0;
+    
+    const uint32_t x = uint(uv.x);    
+    const uint32_t y = uint(uv.y);
 
-    return color_texture.Load(int3(uv.x, uv.y, 0));
+    uint32_t self = id_texture.Load(uint3(x, y, 0));
+
+    // Left adjacency.
+    if (x > 0) {
+       uint32_t other = id_texture.Load(uint3(x - 1, y, 0));
+       if (self != other) {
+           adjacencies += 1;
+       }
+    }
+    
+    // Right adjacency.
+    if (x < 480) {
+        uint32_t other = id_texture.Load(uint3(x + 1, y, 0));
+        if (self != other) {
+            adjacencies += 1;
+        }
+    }
+
+    // Top adjacency.
+    if (y > 0) {
+       uint32_t other = id_texture.Load(uint3(x, y - 1, 0));
+       if (self != other) {
+           adjacencies += 1;
+       }
+    }
+    
+    // Right adjacency.
+    if (y < 320) {
+        uint32_t other = id_texture.Load(uint3(x, y + 1, 0));
+        if (self != other) {
+            adjacencies += 1;
+        }
+    }
+
+    if (adjacencies > 0) {
+        return float4(1, 1, 1, 1);
+    }
+
+    return normal_texture.Load(uint3(uv.x, uv.y, 0));
 }

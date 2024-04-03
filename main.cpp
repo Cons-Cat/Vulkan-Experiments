@@ -1,4 +1,5 @@
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
+#define _LIBCPP_DISABLE_DEPRECATION_WARNINGS
 
 // Include this before `vku/vku.hpp`.
 #include "defer.hpp"
@@ -67,13 +68,6 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     }
     g_physical_device = maybe_physical_device.value();
     std::cout << g_physical_device.name << '\n';
-
-    // vk::StructureChain physical_features{
-    //     vk::PhysicalDeviceBufferDeviceAddressFeatures(vk::True, vk::True,
-    //                                                   vk::True),
-    //     vk::PhysicalDeviceDynamicRenderingFeatures(vk::True),
-    //     vk::PhysicalDeviceShaderObjectFeaturesEXT(vk::True),
-    // };
 
     vk::PhysicalDeviceDynamicRenderingFeatures dynamic_rendering_feature(
         vk::True);
