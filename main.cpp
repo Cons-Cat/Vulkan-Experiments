@@ -2,11 +2,13 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wconversion"
 #include <vku/vku.hpp>
+
+#include <WSIWindow.h>
 #pragma GCC diagnostic pop
+
 #include <vulkan/vulkan.hpp>
 
 #include <VkBootstrap.h>
-#include <WSIWindow.h>
 #include <cstddef>
 #include <fstream>
 #include <iostream>

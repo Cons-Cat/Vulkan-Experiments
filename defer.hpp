@@ -8,7 +8,8 @@
 
 inline auto getexepath() -> std::filesystem::path {
     char result[PATH_MAX];
-    ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
+    size_t count =
+        static_cast<std::size_t>(readlink("/proc/self/exe", result, PATH_MAX));
     return std::string(result, (count > 0) ? count : 0);
 }
 #elif _WIN32
