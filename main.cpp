@@ -1,4 +1,8 @@
+// Disable these warnings for Vookoo.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
 #include <vku/vku.hpp>
+#pragma GCC diagnostic pop
 #include <vulkan/vulkan.hpp>
 
 #include <VkBootstrap.h>
