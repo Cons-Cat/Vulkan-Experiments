@@ -306,6 +306,8 @@ void set_all_render_state(vk::CommandBuffer cmd) {
     cmd.setLineWidth(1.0);
     cmd.setCullMode(vk::CullModeFlagBits::eNone);
     cmd.setPolygonModeEXT(vk::PolygonMode::eFill);
+    vk::ColorBlendEquationEXT color_blend_equations[4]{};
+    cmd.setColorBlendEquationEXT(4, color_blend_equations);
     cmd.setRasterizerDiscardEnable(vk::False);
     cmd.setRasterizationSamplesEXT(vk::SampleCountFlagBits::e1);
 
