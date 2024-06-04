@@ -1,5 +1,3 @@
-#define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
-
 #include <vku/vku.hpp>
 #include <vulkan/vulkan.hpp>
 
@@ -12,6 +10,8 @@
 #include "defer.hpp"
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
+
+inline constinit auto& vulk = VULKAN_HPP_DEFAULT_DISPATCHER;
 
 inline constexpr uint32_t max_frames_in_flight = 3;
 inline constexpr uint32_t game_width = 480;
@@ -61,7 +61,7 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     auto maybe_physical_device =
         physical_device_selector.set_surface(surface).select();
     if (!maybe_physical_device) {
-        std::cout << maybe_physical_device.error().message() << "\n";
+        std::cout << maybe_physical_device.error().message() << '\n';
     }
     g_physical_device = maybe_physical_device.value();
     std::cout << g_physical_device.name << '\n';
@@ -104,8 +104,8 @@ void create_swapchain() {
     auto maybe_swapchain =
         swapchain_builder->set_old_swapchain(g_swapchain).build();
     if (!maybe_swapchain) {
-        std::cout << maybe_swapchain.error().message() << " "
-                  << maybe_swapchain.vk_result() << "\n";
+        std::cout << maybe_swapchain.error().message() << ' '
+                  << maybe_swapchain.vk_result() << '\n';
     }
 
     // Destroy the old swapchain if it exists, and create a new one.
@@ -134,7 +134,7 @@ auto read_file(std::filesystem::path const& file_name) -> vector<char> {
 }
 
 struct shader_objects_t {
-    std::vector<vk::ShaderEXT> objects;
+    std::vector<vk::ShaderEXT> objects;  // NOLINT
 
     void add_shader(
         std::filesystem::path const& shader_path,
@@ -154,8 +154,7 @@ struct shader_objects_t {
 
         VkShaderEXT p_shader;
 
-        VULKAN_HPP_DEFAULT_DISPATCHER.vkCreateShadersEXT(device, 1, &info,
-                                                         nullptr, &p_shader);
+        vulk.vkCreateShadersEXT(device, 1, &info, nullptr, &p_shader);
         objects.emplace_back(p_shader);
     }
 
@@ -180,8 +179,7 @@ struct shader_objects_t {
 
     void destroy() {
         for (auto& shader : objects) {
-            VULKAN_HPP_DEFAULT_DISPATCHER.vkDestroyShaderEXT(device, shader,
-                                                             nullptr);
+            vulk.vkDestroyShaderEXT(device, shader, nullptr);
         }
     }
 } shader_objects;
@@ -191,8 +189,7 @@ void create_command_pool() {
     pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     pool_info.queueFamilyIndex = g_graphics_queue_index;
 
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkCreateCommandPool(device, &pool_info,
-                                                      nullptr, &g_command_pool);
+    vulk.vkCreateCommandPool(device, &pool_info, nullptr, &g_command_pool);
 }
 
 void create_command_buffers() {
@@ -217,14 +214,14 @@ void create_sync_objects() {
     fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
     for (size_t i = 0; i < max_frames_in_flight; i++) {
-        VULKAN_HPP_DEFAULT_DISPATCHER.vkCreateSemaphore(
-            device, &semaphore_info, nullptr, &g_available_semaphores[i]);
+        vulk.vkCreateSemaphore(device, &semaphore_info, nullptr,
+                               &g_available_semaphores[i]);
 
-        VULKAN_HPP_DEFAULT_DISPATCHER.vkCreateSemaphore(
-            device, &semaphore_info, nullptr, &g_finished_semaphore[i]);
+        vulk.vkCreateSemaphore(device, &semaphore_info, nullptr,
+                               &g_finished_semaphore[i]);
 
-        VULKAN_HPP_DEFAULT_DISPATCHER.vkCreateFence(
-            device, &fence_info, nullptr, &g_in_flight_fences[i]);
+        vulk.vkCreateFence(device, &fence_info, nullptr,
+                           &g_in_flight_fences[i]);
     }
 }
 
@@ -236,15 +233,14 @@ void render_and_present() {
     constexpr auto timeout = std::numeric_limits<uint64_t>::max();
 
     // Wait for host to signal the fence for this swapchain frame.
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkWaitForFences(
-        device, 1, &g_in_flight_fences[frame], vk::True, timeout);
+    vulk.vkWaitForFences(device, 1, &g_in_flight_fences[frame], vk::True,
+                         timeout);
 
     // Get a swapchain index that is currently presentable.
     uint32_t image_index;
-    auto error = static_cast<vk::Result>(
-        VULKAN_HPP_DEFAULT_DISPATCHER.vkAcquireNextImageKHR(
-            device, g_swapchain.swapchain, timeout,
-            g_available_semaphores[frame], nullptr, &image_index));
+    auto error = static_cast<vk::Result>(vulk.vkAcquireNextImageKHR(
+        device, g_swapchain.swapchain, timeout, g_available_semaphores[frame],
+        nullptr, &image_index));
 
     if (error == vk::Result::eErrorOutOfDateKHR) {
         recreate_swapchain();
@@ -252,8 +248,8 @@ void render_and_present() {
     }
 
     if (g_image_in_flight[image_index] != VK_NULL_HANDLE) {
-        VULKAN_HPP_DEFAULT_DISPATCHER.vkWaitForFences(
-            device, 1, &g_image_in_flight[image_index], vk::True, timeout);
+        vulk.vkWaitForFences(device, 1, &g_image_in_flight[image_index],
+                             vk::True, timeout);
     }
 
     g_image_in_flight[image_index] = g_in_flight_fences[frame];
@@ -276,12 +272,10 @@ void render_and_present() {
         .setPCommandBuffers(&g_command_buffers[image_index])
         .setSignalSemaphores(signal_semaphores);
 
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkResetFences(device, 1,
-                                                &g_in_flight_fences[frame]);
+    vulk.vkResetFences(device, 1, &g_in_flight_fences[frame]);
 
-    VULKAN_HPP_DEFAULT_DISPATCHER.vkQueueSubmit(g_graphics_queue, 1,
-                                                (VkSubmitInfo*)&submit_info,
-                                                g_in_flight_fences[frame]);
+    vulk.vkQueueSubmit(g_graphics_queue, 1, (VkSubmitInfo*)&submit_info,
+                       g_in_flight_fences[frame]);
 
     // After rendering to the swapchain frame completes, present it to the
     // surface.
@@ -292,7 +286,7 @@ void render_and_present() {
         .setWaitSemaphores(signal_semaphores)
         .setSwapchains(swapchains);
 
-    error = (vk::Result)VULKAN_HPP_DEFAULT_DISPATCHER.vkQueuePresentKHR(
+    error = (vk::Result)vulk.vkQueuePresentKHR(
         g_present_queue, (VkPresentInfoKHR*)&present_info);
     if (error == vk::Result::eErrorOutOfDateKHR) {
         recreate_swapchain();
@@ -528,6 +522,7 @@ void recreate_swapchain() {
 
 struct my_window final : public WSIWindow {
     // Override virtual functions.
+    // NOLINTNEXTLINE I can't control this API.
     void OnResizeEvent(uint16_t width, uint16_t height) final {
     }
 
@@ -544,18 +539,20 @@ struct my_window final : public WSIWindow {
 
 auto main() -> int {
     vk::DynamicLoader vkloader;
-    VULKAN_HPP_DEFAULT_DISPATCHER.init();
+    vulk.init();
 
     vkb::InstanceBuilder instance_builder;
-    auto maybe_instance = instance_builder.request_validation_layers()
-                              .require_api_version(1, 3, 0)
-                              .build();
+    vkb::Result maybe_instance = instance_builder.request_validation_layers()
+                                     .require_api_version(1, 3, 0)
+                                     .use_default_debug_messenger()
+                                     .build();
     if (!maybe_instance) {
-        std::cout << maybe_instance.error().message() << "\n";
+        std::cout << maybe_instance.error().message() << '\n';
+        std::quick_exit(1);
     }
     vkb::Instance instance = maybe_instance.value();
 
-    VULKAN_HPP_DEFAULT_DISPATCHER.init(vk::Instance{instance.instance});
+    vulk.init(vk::Instance{instance.instance});
 
     my_window win;
     win.SetTitle("");
@@ -565,7 +562,7 @@ auto main() -> int {
 
     // Initialize global device.
     device = make_device(instance, surface);
-    VULKAN_HPP_DEFAULT_DISPATCHER.init(device);
+    vulk.init(device);
 
     create_swapchain();
     defer {

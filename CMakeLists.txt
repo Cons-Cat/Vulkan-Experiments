@@ -14,7 +14,7 @@ target_compile_options(game PRIVATE
   -mbmi
   -mbmi2
   -Wall -Wextra
-  #-Wconversion
+  -Wconversion
 
   -Wno-missing-field-initializers
   -Wno-unused-parameter
@@ -67,6 +67,7 @@ message(STATUS "Vulkan Headers Version: ${VulkanHeaders_VERSION}")
 target_compile_definitions(game PRIVATE
   VULKAN_HPP_TYPESAFE_CONVERSION
   VULKAN_HPP_HAS_SPACESHIP_OPERATOR
+  VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
 )
 
 # WSI Layers.

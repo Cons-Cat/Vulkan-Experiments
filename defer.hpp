@@ -25,15 +25,15 @@ namespace detail {
 
 template <typename F>
 class scoped_callback {
-    F callback;
+    F m_callback;
 
   public:
     template <typename T>
-    scoped_callback(T&& f) : callback(f) {  // NOLINT
+    scoped_callback(T&& f) : m_callback(f) {  // NOLINT
     }
 
     ~scoped_callback() {
-        callback();
+        m_callback();
     }
 };
 
