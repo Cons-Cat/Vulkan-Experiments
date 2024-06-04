@@ -1,9 +1,4 @@
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
-#define _LIBCPP_DISABLE_DEPRECATION_WARNINGS
-
-// Include this before `vku/vku.hpp`.
-#include "defer.hpp"
-//
 
 #include <vku/vku.hpp>
 #include <vulkan/vulkan.hpp>
@@ -13,6 +8,8 @@
 #include <cstddef>
 #include <fstream>
 #include <iostream>
+
+#include "defer.hpp"
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 

@@ -6,4 +6,4 @@
 	url = https://github.com/charles-lunarg/vk-bootstrap
 [submodule "Vookoo"]
 	path = Vookoo
-	url = https://github.com/andy-thomason/Vookoo
+	url = https://github.com/cons-cat/Vookoo
