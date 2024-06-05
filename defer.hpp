@@ -48,3 +48,5 @@ inline constinit struct {
 }  // namespace detail
 
 #define defer auto _ = detail::deferrer << [&]  // NOLINT
+
+#define fwd(x) ::std::forward<decltype(x)>(x)

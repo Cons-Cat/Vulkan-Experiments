@@ -29,7 +29,8 @@ inline constexpr uint32_t game_width = 480;
 inline constexpr uint32_t game_height = 320;
 inline constexpr auto depth_format = vk::Format::eD32Sfloat;
 
-inline std::array<float, 4> bindless_data = {1, 1, 0, 1};
+// TODO: Remove this.
+// inline std::array<float, 4> g_bindless_data = {1, 1, 0, 1};
 
 inline vkb::PhysicalDevice g_physical_device;
 // This is optional to defer initialization:
@@ -48,6 +49,165 @@ inline vku::ColorAttachmentImage g_normal_image;
 inline vku::ColorAttachmentImage g_id_image;
 inline vku::DepthStencilImage g_depth_image;
 
+struct alignas(16) vertex {
+    // NOLINTNEXTLINE
+    constexpr vertex(float x, float y, float z = 0.f, float w = 1.f)
+        : x(x), y(y), z(z), w(w) {
+    }
+
+    float x;  // NOLINT
+    float y;  // NOLINT
+    float z;  // NOLINT
+    float w;  // NOLINT
+};
+
+using index_type = unsigned int;
+
+struct mesh {
+    std::vector<vertex> vertices;
+    std::vector<index_type> indices;
+};
+
+class buffer_storage {
+  public:
+    static constexpr unsigned char vertices_offset = 32;
+    static constexpr unsigned char member_stride = 4;
+    using member_type = unsigned int;
+
+    constexpr buffer_storage() : m_data(2'048z) {
+        reset();
+        //  The vector is already zero-initialized here.
+        //  Ensure that vector pointer is properly aligned for pushing vertices.
+        std::byte* p_destination = m_data.data() + m_data.size();
+        assert((reinterpret_cast<std::uintptr_t>(p_destination) &
+                static_cast<std::uintptr_t>(alignof(vertex) - 1u)) == 0u);
+    }
+
+    auto data() -> std::byte* {
+        return m_data.data();
+    }
+
+    [[nodiscard]]
+    auto size() const -> std::size_t {
+        return m_data.capacity();
+    }
+
+    void reset() {
+        // `m_data`'s size member must be reset, but this does not reallocate.
+        m_data.resize(vertices_offset);
+        m_indices.clear();
+
+        // Zero out the prologue data, which is safe and well-defined because
+        // `member_type` and `std::byte` are trivial integers.
+        std::memset(m_data.data(), '\0', vertices_offset);
+    }
+
+    template <typename T>
+    void set_at(T&& value, std::size_t byte_offset) {
+        new (m_data.data() + byte_offset) std::decay_t<T>(fwd(value));
+    }
+
+    template <typename T>
+    [[nodiscard]]
+    auto get_at(std::size_t byte_offset) const -> T {
+        return *__builtin_bit_cast(T*, m_data.data() + byte_offset);
+    }
+
+    void set_vertex_count(member_type count) {
+        set_at(count, 0);
+    }
+
+    [[nodiscard]]
+    auto get_vertex_count() const -> member_type {
+        return get_at<member_type>(0);
+    }
+
+    void set_index_count(member_type count) {
+        set_at(count, member_stride * 1z);
+    }
+
+    [[nodiscard]]
+    auto get_index_count() const -> member_type {
+        return get_at<member_type>(member_stride * 1z);
+    }
+
+    void set_index_offset(member_type count) {
+        set_at(count, member_stride * 2z);
+    }
+
+    [[nodiscard]]
+    auto get_index_offset() const -> member_type {
+        return get_at<member_type>(member_stride * 2z);
+    }
+
+    void set_material_count(member_type count) {
+        set_at(count, member_stride * 3z);
+    }
+
+    [[nodiscard]]
+    auto get_material_count() const -> member_type {
+        return get_at<member_type>(member_stride * 3z);
+    }
+
+    void set_instance_count(member_type count) {
+        set_at(count, member_stride * 4z);
+    }
+
+    [[nodiscard]]
+    auto get_instance_count() const -> member_type {
+        return get_at<member_type>(member_stride * 4z);
+    }
+
+    void set_texture_count(member_type count) {
+        set_at(count, member_stride * 5z);
+    }
+
+    void push_mesh(mesh const& mesh) {
+        // This assumes the vector pointer is properly aligned, which is ensured
+        // by `buffer_storage`'s constructor.
+        std::byte* p_destination = m_data.data() + m_data.size();
+
+        // This assumes that no indices have been pushed yet. That means
+        // `push_mesh` can only be called in a sequence following the
+        // `buffer_storage` constructor or `.reset()`.
+        assert(get_index_count() == 0);
+
+        // Reserve storage in `m_data` for `mesh`.
+        m_data.resize(m_data.size() + (mesh.vertices.size() * sizeof(vertex)));
+
+        // Bit-copy the mesh into `m_data`.
+        std::memcpy(p_destination, mesh.vertices.data(),
+                    mesh.vertices.size() * sizeof(vertex));
+        add_vertex_count(static_cast<member_type>(mesh.vertices.size()));
+
+        // Copy the mesh's indices into `m_indices` to be concatenated onto
+        // `m_data` in the future with `.push_indices()`.
+        m_indices.insert(m_indices.end(), mesh.indices.begin(),
+                         mesh.indices.end());
+    }
+
+    void push_indices() {
+        set_index_count(static_cast<member_type>(m_indices.size()));
+        set_index_offset(static_cast<member_type>(m_data.size()));
+
+        // Bit-copy the indices into `m_data`.
+        std::byte* p_destination = m_data.data() + m_data.size();
+        // m_data.resize(m_data.size() + (m_indices.size() *
+        // sizeof(index_type)));
+
+        std::memcpy(p_destination, m_indices.data(),
+                    m_indices.size() * sizeof(index_type));
+    }
+
+  private:
+    void add_vertex_count(member_type count) {
+        set_vertex_count(get_vertex_count() + count);
+    }
+
+    std::vector<std::byte> m_data;
+    std::vector<index_type> m_indices;
+};
+
 vku::GenericBuffer g_buffer;
 
 inline VkCommandPool g_command_pool;
@@ -61,6 +221,10 @@ inline std::vector<VkFence> g_image_in_flight;
 inline vk::DescriptorSet g_descriptor_set;
 inline vk::DescriptorSetLayout g_descriptor_layout;
 inline vk::PipelineLayout g_pipeline_layout;
+
+vk::DrawIndirectCommand draw_cmd;
+
+vku::GenericBuffer draw_cmd_buffer;
 
 auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     vkb::PhysicalDeviceSelector physical_device_selector(instance);
@@ -360,7 +524,7 @@ void set_all_render_state(vk::CommandBuffer cmd) {
                            0, g_descriptor_set, nullptr);
 }
 
-void record_rendering(uint32_t const frame) {
+void record_rendering(std::size_t const frame) {
     vk::CommandBuffer& cmd = g_command_buffers[frame];
     vk::CommandBufferBeginInfo begin_info;
     cmd.begin(begin_info);
@@ -437,7 +601,8 @@ void record_rendering(uint32_t const frame) {
     shader_objects.bind_vertex(cmd, 0);
     shader_objects.bind_fragment(cmd, 1);
 
-    cmd.draw(3, 1, 0, 0);
+    cmd.drawIndirect(draw_cmd_buffer.buffer(), 0, 1, 0);
+    // cmd.draw(3, 1, 0, 0);
 
     cmd.endRendering();
 
@@ -621,7 +786,7 @@ auto main() -> int {
 
     create_command_buffers();
 
-    vku::DescriptorSetLayoutMaker dslm{};
+    vku::DescriptorSetLayoutMaker dslm;
     g_descriptor_layout =
         dslm.buffer(0, vk::DescriptorType::eStorageBuffer,
                     vk::ShaderStageFlagBits::eAllGraphics, 1)
@@ -640,12 +805,12 @@ auto main() -> int {
     g_pipeline_layout = device.createPipelineLayout(pipeline_info);
 
     std::vector<vk::DescriptorPoolSize> pool_sizes;
-    pool_sizes.emplace_back(vk::DescriptorType::eStorageBuffer, 1);
+    pool_sizes.emplace_back(vk::DescriptorType::eStorageBuffer, 2);
     pool_sizes.emplace_back(vk::DescriptorType::eCombinedImageSampler, 3);
 
     // Create an arbitrary number of descriptors in a pool.
     // Allow the descriptors to be freed, possibly not optimal behaviour.
-    vk::DescriptorPoolCreateInfo descriptor_pool_info{};
+    vk::DescriptorPoolCreateInfo descriptor_pool_info;
     descriptor_pool_info
         .setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet)
         .setPoolSizes(pool_sizes)
@@ -656,15 +821,25 @@ auto main() -> int {
         device.destroyDescriptorPool(descriptor_pool);
     };
 
-    // 128 bytes storage buffer.
+    // Bindless storage buffer.
+    buffer_storage bindless_data;
+
+    // TODO: `g_buffer` is hard coded to 2 kibibytes, which might be a problem
+    // later.
     g_buffer = vku::GenericBuffer(device, g_physical_device.memory_properties,
                                   vk::BufferUsageFlagBits::eStorageBuffer |
                                       vk::BufferUsageFlagBits::eTransferDst,
-                                  sizeof(bindless_data));
-    g_buffer.upload(device, g_physical_device.memory_properties, g_command_pool,
-                    g_graphics_queue, bindless_data);
+                                  bindless_data.size());
 
-    vku::DescriptorSetMaker dsm{};
+    // g_buffer.upload(device, g_physical_device.memory_properties,
+    // g_command_pool,
+    //                 g_graphics_queue, bindless_data.data());
+
+    // g_buffer.upload(device, g_physical_device.memory_properties,
+    // g_command_pool,
+    //                 g_graphics_queue, bindless_data.data());
+
+    vku::DescriptorSetMaker dsm;
     dsm.layout(g_descriptor_layout);
     g_descriptor_set = dsm.create(device, descriptor_pool).front();
 
@@ -701,16 +876,39 @@ auto main() -> int {
         shader_objects.destroy();
     };
 
-    for (uint32_t i = 0; i < g_command_buffers.size(); ++i) {
+    mesh triangle;
+    triangle.vertices = {
+        {  0.f, -0.5f},
+        { 0.5f,  0.5f},
+        {-0.5f,  0.5f}
+    };
+
+    // Add a triangle to be rendered.
+    bindless_data.push_mesh(triangle);
+
+    // Update the vertex buffer memory.
+    g_buffer.upload(device, g_physical_device.memory_properties, g_command_pool,
+                    g_graphics_queue, bindless_data.data(),
+                    bindless_data.size());
+
+    // Allocate a draw command.
+    draw_cmd.setVertexCount(bindless_data.get_vertex_count());
+    draw_cmd.setInstanceCount(1);
+    draw_cmd_buffer =
+        vku::GenericBuffer(device, g_physical_device.memory_properties,
+                           vk::BufferUsageFlagBits::eIndirectBuffer |
+                               vk::BufferUsageFlagBits::eTransferDst,
+                           sizeof(draw_cmd));
+
+    draw_cmd_buffer.upload(device, g_physical_device.memory_properties,
+                           g_command_pool, g_graphics_queue, draw_cmd);
+
+    for (std::size_t i = 0; i < g_command_buffers.size(); ++i) {
         record_rendering(i);
     }
 
     // Game loop.
     while (win.ProcessEvents()) {
-        // bindless_data = {1, 0, 0, 0};
-        g_buffer.upload(device, g_physical_device.memory_properties,
-                        g_command_pool, g_graphics_queue, bindless_data);
-
         render_and_present();
     }
 
