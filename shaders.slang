@@ -1,3 +1,7 @@
+struct camera {
+    float4x4 mat;
+};
+
 struct buffer_storage {
     void set_at<T>(T t, uint byte_offset){
         buffer.Store<T>(byte_offset, t);
@@ -7,18 +11,52 @@ struct buffer_storage {
         return buffer.Load<T>(byte_offset);
     }
 
-    void set_vertex(uint index) {
-        return set_at<float4>(vertices_offset + (index * 16), 0);
-    }
+    // void set_vertex(uint index) {
+    //     return set_at<float4>(vertices_offset + (index * 16), 0);
+    // }
 
     float4 get_vertex(uint index) {
         return get_at<float4>(vertices_offset + (index * 16));
     }
 
+    // void set_index(uint index) {
+    //     return set_at<float4>(vertices_offset + (index * 16), 0);
+    // }
+
+    uint get_index(uint index) {
+        return get_at<uint>(get_index_offset() + (index * 4));
+    }
+
+    void set_vertex_count(uint index, member_type new_vertex_count) {
+        return set_at<member_type>(0, new_vertex_count);
+    }
+
+    uint get_vertex_count(uint index) {
+        return get_at<member_type>(0);
+    }
+
+    void set_index_count(uint index, member_type new_count) {
+        return set_at<member_type>(member_stride, new_count);
+    }
+
+    uint get_index_count() {
+        return get_at<member_type>(member_stride);
+    }
+
+    void set_index_offset(uint index, member_type new_offset) {
+        return set_at<member_type>(member_stride * 2, new_offset);
+    }
+
+    uint get_index_offset() {
+        return get_at<member_type>(member_stride * 2);
+    }
+
     RWByteAddressBuffer buffer;
     
     // This matches `buffer_storage` in `main.cpp`:
-    static const uint vertices_offset = 32;
+    static const uint vertices_offset = 64;
+    static const uint member_stride = 4;
+    typedef uint member_type;
 };
 
 [vk::binding(0, 0)]
@@ -31,13 +69,14 @@ float4 demo_vertex_main(
     out float3 color
     )
 : SV_Position {
-    float4 vert = bindless.get_vertex(vertex_idx);
+    uint index = bindless.get_index(vertex_idx);
+    float4 vert = bindless.get_vertex(index);
 
     float3 colors[3] = {
         float3 (1.0, 0.0, 0.0), float3 (0.0, 1.0, 0.0), float3 (0.0, 0.0, 1.0),
     };
 
-    color = colors[vertex_idx];
+    color = colors[vertex_idx % 3];
 
     // Extract hard coded triangle position.
     return vert;
@@ -126,5 +165,5 @@ float4 composite_fragment_main(float2 uv : SV_Position)
         return float4(1, 1, 1, 1);
     }
 
-    return normal_texture.Load(uint3(uint(uv.x), uint(uv.y), 0));
+    return color_texture.Load(uint3(uint(uv.x), uint(uv.y), 0));
 }

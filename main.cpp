@@ -70,7 +70,7 @@ struct mesh {
 
 class buffer_storage {
   public:
-    static constexpr unsigned char vertices_offset = 32;
+    static constexpr unsigned char vertices_offset = 64;
     static constexpr unsigned char member_stride = 4;
     using member_type = unsigned int;
 
@@ -192,9 +192,6 @@ class buffer_storage {
 
         // Bit-copy the indices into `m_data`.
         std::byte* p_destination = m_data.data() + m_data.size();
-        // m_data.resize(m_data.size() + (m_indices.size() *
-        // sizeof(index_type)));
-
         std::memcpy(p_destination, m_indices.data(),
                     m_indices.size() * sizeof(index_type));
     }
@@ -596,7 +593,7 @@ void record_rendering(std::size_t const frame) {
     shader_objects.bind_vertex(cmd, 0);
     shader_objects.bind_fragment(cmd, 1);
 
-    cmd.draw(3, 1, 0, 0);
+    cmd.draw(6, 1, 0, 0);
 
     cmd.endRendering();
 
@@ -870,15 +867,56 @@ auto main() -> int {
         shader_objects.destroy();
     };
 
-    mesh triangle;
-    triangle.vertices = {
-        {  0.f, -0.5f},
-        { 0.8f,  0.5f},
-        {-0.5f,  0.8f}
+    mesh cube;
+    cube.vertices = {
+        // Front face.
+        { 1,  1,  1},
+        {-1,  1,  1},
+        {-1, -1,  1},
+        { 1, -1,  1},
+        // Back face.
+        { 1,  1, -1},
+        {-1,  1, -1},
+        {-1, -1, -1},
+        { 1, -1, -1},
+        // Left face.
+        {-1,  1,  1},
+        {-1,  1, -1},
+        {-1, -1, -1},
+        {-1, -1,  1},
+        // Right face.
+        { 1,  1,  1},
+        { 1, -1,  1},
+        { 1, -1, -1},
+        { 1,  1, -1},
+        // Bottom face.
+        { 1,  1,  1},
+        {-1,  1,  1},
+        {-1,  1, -1},
+        { 1,  1, -1},
+        // Top face.
+        { 1, -1,  1},
+        {-1, -1,  1},
+        {-1, -1, -1},
+        { 1, -1, -1},
     };
 
+    cube.indices = {// Left face.
+                    0, 1, 2, 2, 1, 3,
+                    // Right face.
+                    4, 5, 6, 6, 5, 7,
+                    // Top face.
+                    0, 1, 4, 4, 1, 5,
+                    // Bottom face.
+                    2, 3, 6, 6, 3, 7,
+                    // Back face.
+                    3, 1, 5, 5, 7, 3,
+                    // Front face.
+                    2, 0, 4, 4, 6, 2};
+
     // Add a triangle to be rendered.
-    bindless_data.push_mesh(triangle);
+    bindless_data.push_mesh(cube);
+    bindless_data.push_indices();
 
     // Update the vertex buffer memory.
     g_buffer.upload(device, g_physical_device.memory_properties, g_command_pool,
