@@ -27,6 +27,8 @@ target_compile_options(game PRIVATE
   -fno-omit-frame-pointer # Required for UBsan.
 
   -fsanitize=undefined
+  
+  # Nsight Graphics gets confused by asan.
   #-fsanitize=address
 
   -ggdb3 -pipe
@@ -52,8 +54,6 @@ add_subdirectory(vk-bootstrap)
 add_subdirectory(Vookoo)
 
 target_link_libraries(game PRIVATE
-   ubsan
-   #asan
    Vulkan::Vulkan
    Vulkan::Headers
    vk-bootstrap::vk-bootstrap
