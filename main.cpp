@@ -237,8 +237,9 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
         physical_device_selector.set_surface(surface).select();
     if (!maybe_physical_device) {
         std::cout << maybe_physical_device.error().message() << '\n';
+        std::quick_exit(1);
     }
-    g_physical_device = maybe_physical_device.value();
+    g_physical_device = *maybe_physical_device;
     std::cout << g_physical_device.name << '\n';
 
     vk::PhysicalDeviceDynamicRenderingFeatures dynamic_rendering_feature(
@@ -254,16 +255,14 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     if (!maybe_device) {
         std::cout << maybe_device.error().message() << '\n';
     }
-    auto device = maybe_device.value();
+    auto device = *maybe_device;
 
     // Initialize queues.
-    g_graphics_queue = device.get_queue(vkb::QueueType::graphics).value();
-    g_graphics_queue_index =
-        device.get_queue_index(vkb::QueueType::graphics).value();
+    g_graphics_queue = *device.get_queue(vkb::QueueType::graphics);
+    g_graphics_queue_index = *device.get_queue_index(vkb::QueueType::graphics);
 
-    g_present_queue = device.get_queue(vkb::QueueType::present).value();
-    g_present_queue_index =
-        device.get_queue_index(vkb::QueueType::present).value();
+    g_present_queue = *device.get_queue(vkb::QueueType::present);
+    g_present_queue_index = *device.get_queue_index(vkb::QueueType::present);
 
     swapchain_builder = vkb::SwapchainBuilder{device};
 
@@ -285,9 +284,9 @@ void create_swapchain() {
 
     // Destroy the old swapchain if it exists, and create a new one.
     // vkb::destroy_swapchain(g_swapchain);
-    g_swapchain = maybe_swapchain.value();
-    g_swapchain_images = g_swapchain.get_images().value();
-    g_swapchain_views = g_swapchain.get_image_views().value();
+    g_swapchain = *maybe_swapchain;
+    g_swapchain_images = *g_swapchain.get_images();
+    g_swapchain_views = *g_swapchain.get_image_views();
 }
 
 auto read_file(std::filesystem::path const& file_name) -> vector<char> {
@@ -728,7 +727,7 @@ auto main() -> int {
         std::cout << maybe_instance.error().message() << '\n';
         std::quick_exit(1);
     }
-    vkb::Instance instance = maybe_instance.value();
+    vkb::Instance instance = *maybe_instance;
 
     vulk.init(vk::Instance{instance.instance});
 
