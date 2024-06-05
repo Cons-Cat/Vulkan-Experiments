@@ -7,3 +7,6 @@
 [submodule "Vookoo"]
 	path = Vookoo
 	url = https://github.com/cons-cat/Vookoo
+[submodule "eve"]
+	path = eve
+	url = https://github.com/jfalcou/eve

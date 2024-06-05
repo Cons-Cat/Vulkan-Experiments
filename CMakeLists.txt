@@ -54,6 +54,7 @@ find_package(VulkanHeaders REQUIRED)
 add_subdirectory(Vulkan-WSIWindow ${CMAKE_BINARY_DIR}/WSIWindow)
 add_subdirectory(vk-bootstrap)
 add_subdirectory(Vookoo)
+add_subdirectory(eve)
 
 target_link_libraries(game PRIVATE
    Vulkan::Vulkan
@@ -62,6 +63,7 @@ target_link_libraries(game PRIVATE
    ${CMAKE_DL_LIBS}
    WSIWindow
    vookoo_interface
+   eve::eve
 )
 
 message(STATUS "Vulkan Headers Version: ${VulkanHeaders_VERSION}")
