@@ -15,6 +15,11 @@
 
 #include "defer.hpp"
 
+// Vulkan confuses the leak sanitizer.
+extern "C" auto __asan_default_options() -> char const* {  // NOLINT
+    return "detect_leaks=0";
+}
+
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 inline constinit auto& vulk = VULKAN_HPP_DEFAULT_DISPATCHER;
