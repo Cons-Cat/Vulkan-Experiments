@@ -39,11 +39,13 @@ target_link_options(game PRIVATE
   #-fsanitize=address
 )
 
+# TODO: Use `-emit-spirv-directly`.
+# TODO: Support building release mode shaders as well.
 add_custom_target(shaders ALL
-  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -profile glsl_450 -o ${CMAKE_CURRENT_BINARY_DIR}/vertex.spv -entry demo_vertex_main -g
-  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -profile glsl_450 -o ${CMAKE_CURRENT_BINARY_DIR}/fragment.spv -entry demo_fragment_main -g
-  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -profile glsl_450 -o ${CMAKE_CURRENT_BINARY_DIR}/composite_vertex.spv -entry composite_vertex_main -g
-  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -profile glsl_450 -o ${CMAKE_CURRENT_BINARY_DIR}/composite_fragment.spv -entry composite_fragment_main -g
+  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -o ${CMAKE_CURRENT_BINARY_DIR}/vertex.spv -profile sm_6_6 -entry demo_vertex_main -g -O2
+  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -o ${CMAKE_CURRENT_BINARY_DIR}/fragment.spv -entry demo_fragment_main -g -O2
+  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -o ${CMAKE_CURRENT_BINARY_DIR}/composite_vertex.spv -entry composite_vertex_main -g -O2
+  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -o ${CMAKE_CURRENT_BINARY_DIR}/composite_fragment.spv -entry composite_fragment_main -g -O2
 )
 
 find_package(Vulkan REQUIRED)

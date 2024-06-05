@@ -222,10 +222,6 @@ inline vk::DescriptorSet g_descriptor_set;
 inline vk::DescriptorSetLayout g_descriptor_layout;
 inline vk::PipelineLayout g_pipeline_layout;
 
-vk::DrawIndirectCommand draw_cmd;
-
-vku::GenericBuffer draw_cmd_buffer;
-
 auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     vkb::PhysicalDeviceSelector physical_device_selector(instance);
     physical_device_selector
@@ -600,8 +596,7 @@ void record_rendering(std::size_t const frame) {
     shader_objects.bind_vertex(cmd, 0);
     shader_objects.bind_fragment(cmd, 1);
 
-    cmd.drawIndirect(draw_cmd_buffer.buffer(), 0, 1, 0);
-    // cmd.draw(3, 1, 0, 0);
+    cmd.draw(3, 1, 0, 0);
 
     cmd.endRendering();
 
@@ -878,8 +873,8 @@ auto main() -> int {
     mesh triangle;
     triangle.vertices = {
         {  0.f, -0.5f},
-        { 0.5f,  0.5f},
-        {-0.5f,  0.5f}
+        { 0.8f,  0.5f},
+        {-0.5f,  0.8f}
     };
 
     // Add a triangle to be rendered.
@@ -889,18 +884,6 @@ auto main() -> int {
     g_buffer.upload(device, g_physical_device.memory_properties, g_command_pool,
                     g_graphics_queue, bindless_data.data(),
                     bindless_data.size());
-
-    // Allocate a draw command.
-    draw_cmd.setVertexCount(bindless_data.get_vertex_count());
-    draw_cmd.setInstanceCount(1);
-    draw_cmd_buffer =
-        vku::GenericBuffer(device, g_physical_device.memory_properties,
-                           vk::BufferUsageFlagBits::eIndirectBuffer |
-                               vk::BufferUsageFlagBits::eTransferDst,
-                           sizeof(draw_cmd));
-
-    draw_cmd_buffer.upload(device, g_physical_device.memory_properties,
-                           g_command_pool, g_graphics_queue, draw_cmd);
 
     for (std::size_t i = 0; i < g_command_buffers.size(); ++i) {
         record_rendering(i);

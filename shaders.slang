@@ -1,32 +1,46 @@
-struct moo {
-    float4 a;
-}
+struct buffer_storage {
+    void set_at<T>(T t, uint byte_offset){
+        buffer.Store<T>(byte_offset, t);
+    }
+
+    T get_at<T>(uint byte_offset){
+        return buffer.Load<T>(byte_offset);
+    }
+
+    void set_vertex(uint index) {
+        return set_at<float4>(vertices_offset + (index * 16), 0);
+    }
+
+    float4 get_vertex(uint index) {
+        return get_at<float4>(vertices_offset + (index * 16));
+    }
+
+    RWByteAddressBuffer buffer;
+    
+    // This matches `buffer_storage` in `main.cpp`:
+    static const uint vertices_offset = 32;
+};
 
 [vk::binding(0, 0)]
-RWStructuredBuffer<moo> buffer;
+buffer_storage bindless;
 
 // Generate a demo triangle.
 [shader("vertex")]
 float4 demo_vertex_main(
-    in uint32_t vertex : SV_VertexID,
+    in uint32_t vertex_idx : SV_VertexID,
     out float3 color
     )
 : SV_Position {
-    float2 positions[3] = {
-        float2 (0.0, -0.5), float2 (0.5, 0.5), float2 (-0.5, 0.5),
-    };
+    float4 vert = bindless.get_vertex(vertex_idx);
 
     float3 colors[3] = {
         float3 (1.0, 0.0, 0.0), float3 (0.0, 1.0, 0.0), float3 (0.0, 0.0, 1.0),
     };
 
-    //color = buffer[0].a.rgb;
-
-    //buffer[0].a = {1,1,1,1};
-    color = colors[vertex];
+    color = colors[vertex_idx];
 
     // Extract hard coded triangle position.
-    return float4(positions[vertex], 0, 1);
+    return vert;
 }
 
 struct frag_out {
