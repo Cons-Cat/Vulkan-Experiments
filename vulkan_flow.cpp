@@ -66,11 +66,11 @@ void create_swapchain() {
 }
 
 void create_command_pool() {
-    VkCommandPoolCreateInfo pool_info = {};
-    pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    vk::CommandPoolCreateInfo pool_info = {};
     pool_info.queueFamilyIndex = g_graphics_queue_index;
+    pool_info.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
 
-    vulk.vkCreateCommandPool(g_device, &pool_info, nullptr, &g_command_pool);
+    g_command_pool = g_device.createCommandPool(pool_info);
 }
 
 void create_command_buffers() {

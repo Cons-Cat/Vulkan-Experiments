@@ -31,7 +31,7 @@ inline vku::ColorAttachmentImage g_normal_image;
 inline vku::ColorAttachmentImage g_id_image;
 inline vku::DepthStencilImage g_depth_image;
 
-inline VkCommandPool g_command_pool;
+inline vk::CommandPool g_command_pool;
 inline std::vector<vk::CommandBuffer> g_command_buffers;
 
 inline std::vector<VkSemaphore> g_available_semaphores;

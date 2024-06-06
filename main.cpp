@@ -237,10 +237,6 @@ auto main() -> int {
                              g_bindless_data.m_indices);
 #endif
 
-    for (std::size_t i = 0; i < g_command_buffers.size(); ++i) {
-        record_rendering(i);
-    }
-
     // Game loop.
     while (win.ProcessEvents()) {
         g_bindless_data.set_view_matrix(g_camera.make_view_matrix());
@@ -248,6 +244,10 @@ auto main() -> int {
         g_buffer.upload(g_device, g_physical_device.memory_properties,
                         g_command_pool, g_graphics_queue,
                         g_bindless_data.data(), g_bindless_data.size());
+
+        for (std::size_t i = 0; i < g_command_buffers.size(); ++i) {
+            record_rendering(i);
+        }
 
         render_and_present();
     }
