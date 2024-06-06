@@ -53,3 +53,8 @@ inline constexpr uint32_t max_frames_in_flight = 3;
 inline constexpr uint32_t game_width = 480;
 inline constexpr uint32_t game_height = 320;
 inline constexpr auto depth_format = vk::Format::eD32Sfloat;
+
+#ifdef DEBUG_VERTICES
+inline vku::HostVertexBuffer g_dbg_vertex_buffer;
+inline vku::HostIndexBuffer g_dbg_index_buffer;
+#endif

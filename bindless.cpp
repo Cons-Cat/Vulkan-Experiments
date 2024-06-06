@@ -21,6 +21,11 @@ void buffer_storage::push_mesh(mesh const& mesh) {
     // Copy the mesh's indices into `m_indices` to be concatenated onto
     // `m_data` in the future with `.push_indices()`.
     m_indices.insert(m_indices.end(), mesh.indices.begin(), mesh.indices.end());
+
+#ifdef DEBUG_VERTICES
+    m_dbg_vertices.insert(m_dbg_vertices.end(), mesh.vertices.begin(),
+                          mesh.vertices.end());
+#endif
 }
 
 void buffer_storage::push_indices() {

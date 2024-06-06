@@ -305,7 +305,15 @@ void record_rendering(std::size_t const frame) {
     shader_objects.bind_vertex(cmd, 0);
     shader_objects.bind_fragment(cmd, 1);
 
+#ifdef DEBUG_VERTICES
+    // TODO: Instead of a dedicated vector for debug verts, just offset into
+    // bindless data.
+    cmd.bindVertexBuffers(0, g_dbg_vertex_buffer.buffer(), {0});
+    cmd.bindIndexBuffer(g_dbg_index_buffer.buffer(), 0, vk::IndexType::eUint32);
+    cmd.drawIndexed(g_bindless_data.get_index_count(), 1, 0, 0, 0);
+#else
     cmd.draw(g_bindless_data.get_vertex_count(), 1, 0, 0);
+#endif
 
     cmd.endRendering();
 

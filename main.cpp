@@ -150,6 +150,7 @@ auto main() -> int {
         .beginImages(3, 0, vk::DescriptorType::eCombinedImageSampler)
         .image(nearest_sampler, g_id_image.imageView(),
                vk::ImageLayout::eShaderReadOnlyOptimal)
+
         .update(g_device);
     assert(dsu.ok());
 
@@ -226,6 +227,15 @@ auto main() -> int {
     g_buffer.upload(g_device, g_physical_device.memory_properties,
                     g_command_pool, g_graphics_queue, g_bindless_data.data(),
                     g_bindless_data.size());
+
+#ifdef DEBUG_VERTICES
+    g_dbg_vertex_buffer =
+        vku::HostVertexBuffer(g_device, g_physical_device.memory_properties,
+                              g_bindless_data.m_dbg_vertices);
+    g_dbg_index_buffer =
+        vku::HostIndexBuffer(g_device, g_physical_device.memory_properties,
+                             g_bindless_data.m_indices);
+#endif
 
     for (std::size_t i = 0; i < g_command_buffers.size(); ++i) {
         record_rendering(i);

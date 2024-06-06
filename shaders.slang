@@ -79,13 +79,15 @@ struct buffer_storage {
 [vk::binding(0, 0)]
 buffer_storage bindless;
 
+struct vs_out {
+    float4 position : SV_Position;
+    float3 color;
+}
+
 // Generate a demo triangle.
 [shader("vertex")]
-float4 demo_vertex_main(
-    in uint32_t invocation_index : SV_VertexID,
-    out float3 color
-    )
-: SV_Position {
+vs_out demo_vertex_main(in float4 dbg_vert : SV_Position,
+                        in uint32_t invocation_index : SV_VertexID) {
     uint index = bindless.get_index(invocation_index);
     float4 vert = bindless.get_vertex(index);
     float4x4 view_proj = mul(bindless.get_proj_matrix(), bindless.get_view_matrix());
@@ -96,10 +98,9 @@ float4 demo_vertex_main(
         float3 (1.0, 0.0, 0.0), float3 (0.0, 1.0, 0.0), float3 (0.0, 0.0, 1.0),
     };
 
-    color = colors[invocation_index % 3];
+    float3 color = colors[invocation_index % 3];
 
-    // Extract hard coded triangle position.
-    return vert;
+    return {vert, color};
 }
 
 struct frag_out {
@@ -114,10 +115,10 @@ struct frag_out {
 };
 
 [shader("fragment")]
-frag_out demo_fragment_main(in float3 color) {
+frag_out demo_fragment_main(in vs_out input) {
     frag_out output = {};
-    output.color = float4(color, 1);
-    output.normal = float4(color.xy, 0, 1);
+    output.color = float4(input.color, 1);
+    output.normal = float4(input.color.xy, 0, 1);
     output.id = 32000;
     return output;
 }
@@ -136,7 +137,8 @@ Sampler2D<uint32_t> id_texture;
 float4 composite_vertex_main(uint32_t vertex : SV_VertexID)
 : SV_Position {
     float2 uv = float2((vertex << 1) & 2, vertex & 2);
-    return float4(uv * float2(2, -2) + float2(-1, 1), 0, 1);
+    float4 color = float4(uv * float2(2, -2) + float2(-1, 1), 0, 1);
+    return color;
 }
 
 [shader("fragment")]

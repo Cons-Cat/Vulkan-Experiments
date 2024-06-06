@@ -92,6 +92,12 @@ class buffer_storage {
         return get_at<member_type>(0);
     }
 
+    [[nodiscard]]
+    auto get_vertex_data() const -> vertex const* {
+        return reinterpret_cast<vertex const*>(m_data.data() +
+                                               get_vertex_count());
+    }
+
     void set_index_count(member_type count) {
         set_at(count, member_stride * 1z);
     }
@@ -161,7 +167,15 @@ class buffer_storage {
     }
 
     std::vector<std::byte> m_data;
+
+#ifndef DEBUG_VERTICES
     std::vector<index_type> m_indices;
+#else
+
+  public:
+    std::vector<vertex> m_dbg_vertices;
+    std::vector<index_type> m_indices;
+#endif
 };
 
 inline vku::GenericBuffer g_buffer;
