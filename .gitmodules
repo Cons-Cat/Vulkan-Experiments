@@ -10,3 +10,6 @@
 [submodule "eve"]
 	path = eve
 	url = https://github.com/jfalcou/eve
+[submodule "glm"]
+	path = glm
+	url = https://github.com/g-truc/glm

@@ -3,6 +3,10 @@
 #include <WSIWindow.h>
 #pragma GCC diagnostic pop
 
+// These macros come from `WSIWindow.h`.
+#undef print
+#undef repeat
+
 struct my_window final : public WSIWindow {
     // Override virtual functions.
     // NOLINTNEXTLINE I can't control this API.

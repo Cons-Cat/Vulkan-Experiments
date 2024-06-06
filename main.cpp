@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include "bindless.hpp"
+#include "camera.hpp"
 #include "defer.hpp"
 #include "globals.hpp"
 #include "shader_objects.hpp"
@@ -122,15 +123,12 @@ auto main() -> int {
         g_device.destroyDescriptorPool(descriptor_pool);
     };
 
-    // Bindless storage buffer.
-    buffer_storage bindless_data;
-
     // TODO: `g_buffer` is hard coded to 2 kibibytes, which might be a problem
     // later.
     g_buffer = vku::GenericBuffer(g_device, g_physical_device.memory_properties,
                                   vk::BufferUsageFlagBits::eStorageBuffer |
                                       vk::BufferUsageFlagBits::eTransferDst,
-                                  bindless_data.size());
+                                  g_bindless_data.size());
 
     vku::DescriptorSetMaker dsm;
     dsm.layout(g_descriptor_layout);
@@ -216,14 +214,18 @@ auto main() -> int {
                     // Front face.
                     2, 0, 4, 4, 6, 2};
 
-    // Add a triangle to be rendered.
-    bindless_data.push_mesh(cube);
-    bindless_data.push_indices();
+    auto proj = projection_matrix;
+    proj[1][1] *= -1.f;
+    g_bindless_data.set_proj_matrix(proj);
+    g_bindless_data.set_view_matrix(g_camera.make_view_matrix());
 
-    // Update the vertex buffer memory.
+    // Add a triangle to be rendered.
+    g_bindless_data.push_mesh(cube);
+    g_bindless_data.push_indices();
+
     g_buffer.upload(g_device, g_physical_device.memory_properties,
-                    g_command_pool, g_graphics_queue, bindless_data.data(),
-                    bindless_data.size());
+                    g_command_pool, g_graphics_queue, g_bindless_data.data(),
+                    g_bindless_data.size());
 
     for (std::size_t i = 0; i < g_command_buffers.size(); ++i) {
         record_rendering(i);
@@ -231,6 +233,12 @@ auto main() -> int {
 
     // Game loop.
     while (win.ProcessEvents()) {
+        g_bindless_data.set_view_matrix(g_camera.make_view_matrix());
+
+        g_buffer.upload(g_device, g_physical_device.memory_properties,
+                        g_command_pool, g_graphics_queue,
+                        g_bindless_data.data(), g_bindless_data.size());
+
         render_and_present();
     }
 

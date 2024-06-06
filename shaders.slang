@@ -51,10 +51,27 @@ struct buffer_storage {
         return get_at<member_type>(member_stride * 2);
     }
 
+    void set_view_matrix(float4x4 mat) {
+        return set_at<float4x4>(mat, cameras_offset);
+    }
+
+    float4x4 get_view_matrix() {
+        return get_at<float4x4>(cameras_offset);
+    }
+
+    void set_proj_matrix(float4x4 mat) {
+        return set_at<float4x4>(mat, cameras_offset + sizeof(float4x4));
+    }
+
+    float4x4 get_proj_matrix() {
+        return get_at<float4x4>(cameras_offset + sizeof(float4x4));
+    }
+
     RWByteAddressBuffer buffer;
     
     // This matches `buffer_storage` in `main.cpp`:
-    static const uint vertices_offset = 64;
+    static const uint cameras_offset = 64;
+    static const uint vertices_offset = 128;
     static const uint member_stride = 4;
     typedef uint member_type;
 };
@@ -65,18 +82,21 @@ buffer_storage bindless;
 // Generate a demo triangle.
 [shader("vertex")]
 float4 demo_vertex_main(
-    in uint32_t vertex_idx : SV_VertexID,
+    in uint32_t invocation_index : SV_VertexID,
     out float3 color
     )
 : SV_Position {
-    uint index = bindless.get_index(vertex_idx);
+    uint index = bindless.get_index(invocation_index);
     float4 vert = bindless.get_vertex(index);
+    float4x4 view_proj = mul(bindless.get_proj_matrix(), bindless.get_view_matrix());
+
+    vert = mul(view_proj, vert);
 
     float3 colors[3] = {
         float3 (1.0, 0.0, 0.0), float3 (0.0, 1.0, 0.0), float3 (0.0, 0.0, 1.0),
     };
 
-    color = colors[vertex_idx % 3];
+    color = colors[invocation_index % 3];
 
     // Extract hard coded triangle position.
     return vert;

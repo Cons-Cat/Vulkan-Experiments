@@ -6,6 +6,8 @@
 #include <vku/vku.hpp>
 #pragma GCC diagnostic pop
 
+#include <glm/mat4x4.hpp>
+
 #include <cassert>
 #include <vector>
 
@@ -30,19 +32,25 @@ struct mesh {
     std::vector<index_type> indices;
 };
 
+template <typename T>
+inline auto is_aligned(T* p_data, std::uintptr_t alignment) -> bool {
+    return (reinterpret_cast<std::uintptr_t>(p_data) & alignment - 1u) == 0u;
+}
+
 class buffer_storage {
   public:
-    static constexpr unsigned char vertices_offset = 64;
+    static constexpr unsigned char cameras_offset = 64;
+    static constexpr unsigned char vertices_offset = 128;
     static constexpr unsigned char member_stride = 4;
     using member_type = unsigned int;
 
     buffer_storage() : m_data(2'048z) {
         reset();
+
         //  The vector is already zero-initialized here.
         //  Ensure that vector pointer is properly aligned for pushing vertices.
         std::byte* p_destination = m_data.data() + m_data.size();
-        assert((reinterpret_cast<std::uintptr_t>(p_destination) &
-                static_cast<std::uintptr_t>(alignof(vertex) - 1u)) == 0u);
+        assert(is_aligned(p_destination, alignof(vertex)));
     }
 
     auto data() -> std::byte* {
@@ -124,6 +132,25 @@ class buffer_storage {
         set_at(count, member_stride * 5z);
     }
 
+    // Camera getters/setters.
+    void set_view_matrix(glm::mat4x4 matrix) {
+        set_at(matrix, cameras_offset);
+    }
+
+    [[nodiscard]]
+    auto get_view_matrix() const -> glm::mat4x4 {
+        return get_at<glm::mat4x4>(cameras_offset);
+    }
+
+    void set_proj_matrix(glm::mat4x4 matrix) {
+        set_at(matrix, cameras_offset + sizeof(glm::mat4x4));
+    }
+
+    [[nodiscard]]
+    auto get_proj_matrix() const -> glm::mat4x4 {
+        return get_at<glm::mat4x4>(cameras_offset + sizeof(glm::mat4x4));
+    }
+
     void push_mesh(mesh const& mesh);
 
     void push_indices();
@@ -138,3 +165,6 @@ class buffer_storage {
 };
 
 inline vku::GenericBuffer g_buffer;
+
+// Bindless storage buffer.
+inline buffer_storage g_bindless_data;

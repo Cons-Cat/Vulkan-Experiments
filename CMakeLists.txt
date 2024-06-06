@@ -6,6 +6,7 @@ add_executable(game)
 set_property(TARGET game PROPERTY CXX_STANDARD 26)
 target_sources(game PRIVATE
   main.cpp
+  camera.cpp
   window.cpp
   bindless.cpp
   vulkan_flow.cpp
@@ -59,7 +60,7 @@ find_package(VulkanHeaders REQUIRED)
 add_subdirectory(Vulkan-WSIWindow ${CMAKE_BINARY_DIR}/WSIWindow)
 add_subdirectory(vk-bootstrap)
 add_subdirectory(Vookoo)
-add_subdirectory(eve)
+add_subdirectory(glm)
 
 target_link_libraries(game PRIVATE
    Vulkan::Vulkan
@@ -68,7 +69,7 @@ target_link_libraries(game PRIVATE
    ${CMAKE_DL_LIBS}
    WSIWindow
    vookoo_interface
-   eve::eve
+   glm::glm
 )
 
 message(STATUS "Vulkan Headers Version: ${VulkanHeaders_VERSION}")
@@ -77,6 +78,7 @@ target_compile_definitions(game PRIVATE
   VULKAN_HPP_TYPESAFE_CONVERSION
   VULKAN_HPP_HAS_SPACESHIP_OPERATOR
   VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
+  GLM_ENABLE_EXPERIMENTAL
 )
 
 # WSI Layers.
