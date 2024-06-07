@@ -6,10 +6,9 @@
 
 auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     vkb::PhysicalDeviceSelector physical_device_selector(instance);
-    physical_device_selector
-        .add_required_extension(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME)
-        .add_required_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME)
-        .add_required_extension(VK_EXT_SHADER_OBJECT_EXTENSION_NAME);
+    physical_device_selector.add_required_extension("VK_KHR_dynamic_rendering")
+        .add_required_extension("VK_KHR_swapchain")
+        .add_required_extension("VK_EXT_shader_object");
 
     auto maybe_physical_device =
         physical_device_selector.set_surface(surface).select();
@@ -83,7 +82,7 @@ void create_sync_objects() {
     g_available_semaphores.resize(max_frames_in_flight);
     g_finished_semaphore.resize(max_frames_in_flight);
     g_in_flight_fences.resize(max_frames_in_flight);
-    g_image_in_flight.resize(g_swapchain.image_count, VK_NULL_HANDLE);
+    g_image_in_flight.resize(g_swapchain.image_count, nullptr);
 
     // TODO: Use hpp bindings for this.
 
@@ -126,7 +125,7 @@ void render_and_present() {
         return;
     }
 
-    if (g_image_in_flight[image_index] != VK_NULL_HANDLE) {
+    if (g_image_in_flight[image_index] != nullptr) {
         vulk.vkWaitForFences(g_device, 1, &g_image_in_flight[image_index],
                              vk::True, timeout);
     }

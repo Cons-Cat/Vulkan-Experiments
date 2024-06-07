@@ -73,7 +73,7 @@ class buffer_storage {
 
     template <typename T>
     [[nodiscard]]
-    auto get_at(std::size_t byte_offset) const -> T {
+    auto get_at(std::size_t byte_offset) const -> T const& {
         return *__builtin_bit_cast(T*, m_data.data() + byte_offset);
     }
 
@@ -82,7 +82,7 @@ class buffer_storage {
     }
 
     [[nodiscard]]
-    auto get_vertex_count() const -> member_type {
+    auto get_vertex_count() const -> member_type const& {
         return get_at<member_type>(0);
     }
 
@@ -97,7 +97,7 @@ class buffer_storage {
     }
 
     [[nodiscard]]
-    auto get_index_count() const -> member_type {
+    auto get_index_count() const -> member_type const& {
         return get_at<member_type>(member_stride * 1z);
     }
 
@@ -106,7 +106,7 @@ class buffer_storage {
     }
 
     [[nodiscard]]
-    auto get_index_offset() const -> member_type {
+    auto get_index_offset() const -> member_type const& {
         return get_at<member_type>(member_stride * 2z);
     }
 
@@ -115,7 +115,7 @@ class buffer_storage {
     }
 
     [[nodiscard]]
-    auto get_material_count() const -> member_type {
+    auto get_material_count() const -> member_type const& {
         return get_at<member_type>(member_stride * 3z);
     }
 
@@ -124,7 +124,7 @@ class buffer_storage {
     }
 
     [[nodiscard]]
-    auto get_instance_count() const -> member_type {
+    auto get_instance_count() const -> member_type const& {
         return get_at<member_type>(member_stride * 4z);
     }
 
@@ -138,7 +138,7 @@ class buffer_storage {
     }
 
     [[nodiscard]]
-    auto get_view_matrix() const -> glm::mat4x4 {
+    auto get_view_matrix() const -> glm::mat4x4 const& {
         return get_at<glm::mat4x4>(cameras_offset);
     }
 
@@ -147,7 +147,7 @@ class buffer_storage {
     }
 
     [[nodiscard]]
-    auto get_proj_matrix() const -> glm::mat4x4 {
+    auto get_proj_matrix() const -> glm::mat4x4 const& {
         return get_at<glm::mat4x4>(cameras_offset + sizeof(glm::mat4x4));
     }
 
