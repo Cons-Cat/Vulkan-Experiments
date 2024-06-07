@@ -11,10 +11,10 @@ constexpr float speed = 0.5f;
 void my_window::OnKeyEvent(eAction action, eKeycode keycode) {
     if (action == eDOWN) {
         switch (keycode) {
-            case KEY_Up:
+            case KEY_Down:
                 g_camera.position.z -= speed;
                 break;
-            case KEY_Down:
+            case KEY_Up:
                 g_camera.position.z += speed;
                 break;
             case KEY_Left:
@@ -24,10 +24,10 @@ void my_window::OnKeyEvent(eAction action, eKeycode keycode) {
                 g_camera.position.x += speed;
                 break;
             case KEY_S:
-                g_camera.yaw -= speed;
+                g_camera.yaw -= speed / 4;
                 break;
             case KEY_D:
-                g_camera.yaw += speed;
+                g_camera.yaw += speed / 4;
                 break;
             case KEY_Escape:
                 Close();

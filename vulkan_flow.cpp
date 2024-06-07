@@ -191,7 +191,21 @@ void set_all_render_state(vk::CommandBuffer cmd) {
     cmd.setPrimitiveTopology(vk::PrimitiveTopology::eTriangleList);
     cmd.setPrimitiveRestartEnable(vk::False);
 
+#ifdef DEBUG_VERTICES
+    // vk::VertexInputAttributeDescription2EXT vertex_attributes;
+    vk::VertexInputBindingDescription2EXT vertex_input_binding{};
+    vertex_input_binding.setBinding(0);
+    vertex_input_binding.setInputRate(vk::VertexInputRate::eVertex);
+    vertex_input_binding.setStride(sizeof(vertex));
+    vertex_input_binding.setDivisor(1);
+
+    vk::VertexInputAttributeDescription2EXT vertex_attributes{};
+    vertex_attributes.setFormat(vk::Format::eR32G32B32A32Sfloat);
+
+    cmd.setVertexInputEXT(1, &vertex_input_binding, 1, &vertex_attributes);
+#else
     cmd.setVertexInputEXT(0, nullptr, 0, nullptr);
+#endif
 
     cmd.setDepthClampEnableEXT(vk::False);
 
@@ -312,7 +326,7 @@ void record_rendering(std::size_t const frame) {
     cmd.bindIndexBuffer(g_dbg_index_buffer.buffer(), 0, vk::IndexType::eUint32);
     cmd.drawIndexed(g_bindless_data.get_index_count(), 1, 0, 0, 0);
 #else
-    cmd.draw(g_bindless_data.get_vertex_count(), 1, 0, 0);
+    cmd.draw(g_bindless_data.get_index_count(), 1, 0, 0);
 #endif
 
     cmd.endRendering();

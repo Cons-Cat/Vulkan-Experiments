@@ -55,6 +55,6 @@ inline constexpr uint32_t game_height = 320;
 inline constexpr auto depth_format = vk::Format::eD32Sfloat;
 
 #ifdef DEBUG_VERTICES
-inline vku::HostVertexBuffer g_dbg_vertex_buffer;
-inline vku::HostIndexBuffer g_dbg_index_buffer;
+inline vku::VertexBuffer g_dbg_vertex_buffer;
+inline vku::IndexBuffer g_dbg_index_buffer;
 #endif

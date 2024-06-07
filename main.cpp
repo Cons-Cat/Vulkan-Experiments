@@ -202,44 +202,47 @@ auto main() -> int {
         { 1, -1, -1},
     };
 
-    cube.indices = {// Left face.
-                    0, 1, 2, 2, 1, 3,
-                    // Right face.
-                    4, 5, 6, 6, 5, 7,
-                    // Top face.
-                    0, 1, 4, 4, 1, 5,
-                    // Bottom face.
-                    2, 3, 6, 6, 3, 7,
-                    // Back face.
-                    3, 1, 5, 5, 7, 3,
-                    // Front face.
-                    2, 0, 4, 4, 6, 2};
+    cube.indices = {
+        0,  1,  2,  2,  3,  0,  4,  7,  6,  6,  5,  4,  8,  9,  10, 10, 11, 8,
+        12, 13, 14, 14, 15, 12, 16, 19, 18, 18, 17, 16, 20, 21, 22, 22, 23, 20,
+    };
 
     auto proj = projection_matrix;
     proj[1][1] *= -1.f;
     g_bindless_data.set_proj_matrix(proj);
-    g_bindless_data.set_view_matrix(g_camera.make_view_matrix());
-
-    // Add a triangle to be rendered.
-    g_bindless_data.push_mesh(cube);
-    g_bindless_data.push_indices();
-
-    g_buffer.upload(g_device, g_physical_device.memory_properties,
-                    g_command_pool, g_graphics_queue, g_bindless_data.data(),
-                    g_bindless_data.size());
 
 #ifdef DEBUG_VERTICES
+    g_bindless_data.m_dbg_vertices.resize(2000u);
+    g_bindless_data.m_indices.resize(2000);
+
     g_dbg_vertex_buffer =
-        vku::HostVertexBuffer(g_device, g_physical_device.memory_properties,
-                              g_bindless_data.m_dbg_vertices);
+        vku::VertexBuffer(g_device, g_physical_device.memory_properties,
+                          g_bindless_data.m_dbg_vertices.size());
     g_dbg_index_buffer =
-        vku::HostIndexBuffer(g_device, g_physical_device.memory_properties,
-                             g_bindless_data.m_indices);
+        vku::IndexBuffer(g_device, g_physical_device.memory_properties,
+                         g_bindless_data.m_indices.size());
 #endif
 
     // Game loop.
     while (win.ProcessEvents()) {
+        g_bindless_data.reset();
+
+        // Update camera.
         g_bindless_data.set_view_matrix(g_camera.make_view_matrix());
+
+        // Add a cube to be rendered.
+        g_bindless_data.push_mesh(cube);
+        g_bindless_data.push_indices();
+
+#ifdef DEBUG_VERTICES
+        g_dbg_vertex_buffer.upload(
+            g_device, g_physical_device.memory_properties, g_command_pool,
+            g_graphics_queue, g_bindless_data.m_dbg_vertices);
+
+        g_dbg_index_buffer.upload(g_device, g_physical_device.memory_properties,
+                                  g_command_pool, g_graphics_queue,
+                                  g_bindless_data.m_indices);
+#endif
 
         g_buffer.upload(g_device, g_physical_device.memory_properties,
                         g_command_pool, g_graphics_queue,
