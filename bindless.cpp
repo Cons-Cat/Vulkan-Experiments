@@ -1,5 +1,15 @@
 #include "bindless.hpp"
 
+void buffer_storage::reset() {
+    // `m_data`'s size member must be reset, but this does not reallocate.
+    m_data.resize(vertices_offset);
+    m_indices.clear();
+
+    // Zero out the prologue data, which is safe and well-defined because
+    // `member_type` and `std::byte` are trivial integers.
+    std::memset(m_data.data(), '\0', vertices_offset);
+}
+
 void buffer_storage::push_mesh(mesh const& mesh) {
     // This assumes the vector pointer is properly aligned, which is ensured
     // by `buffer_storage`'s constructor.

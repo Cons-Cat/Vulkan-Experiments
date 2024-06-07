@@ -3,6 +3,13 @@ struct camera {
 };
 
 struct buffer_storage {
+    // This matches `buffer_storage` in `main.cpp`:
+    static const uint cameras_offset = 64;
+    static const uint vertices_offset = 128;
+    static const uint member_stride = 4;
+    typedef uint member_type;
+
+    [mutating]
     void set_at<T>(T t, uint byte_offset){
         buffer.Store<T>(byte_offset, t);
     }
@@ -11,22 +18,16 @@ struct buffer_storage {
         return buffer.Load<T>(byte_offset);
     }
 
-    // void set_vertex(uint index) {
-    //     return set_at<float4>(vertices_offset + (index * 16), 0);
-    // }
-
     float4 get_vertex(uint index) {
+        // `vertex` is 16 bytes.
         return get_at<float4>(vertices_offset + (index * 16));
     }
-
-    // void set_index(uint index) {
-    //     return set_at<float4>(vertices_offset + (index * 16), 0);
-    // }
 
     uint get_index(uint index) {
         return get_at<uint>(get_index_offset() + (index * 4));
     }
 
+    [mutating]
     void set_vertex_count(uint index, member_type new_vertex_count) {
         return set_at<member_type>(0, new_vertex_count);
     }
@@ -35,6 +36,7 @@ struct buffer_storage {
         return get_at<member_type>(0);
     }
 
+    [mutating]
     void set_index_count(uint index, member_type new_count) {
         return set_at<member_type>(member_stride, new_count);
     }
@@ -43,6 +45,7 @@ struct buffer_storage {
         return get_at<member_type>(member_stride);
     }
 
+    [mutating]
     void set_index_offset(uint index, member_type new_offset) {
         return set_at<member_type>(member_stride * 2, new_offset);
     }
@@ -50,7 +53,8 @@ struct buffer_storage {
     uint get_index_offset() {
         return get_at<member_type>(member_stride * 2);
     }
-
+    
+    [mutating]
     void set_view_matrix(float4x4 mat) {
         return set_at<float4x4>(mat, cameras_offset);
     }
@@ -59,6 +63,7 @@ struct buffer_storage {
         return get_at<float4x4>(cameras_offset);
     }
 
+    [mutating]
     void set_proj_matrix(float4x4 mat) {
         return set_at<float4x4>(mat, cameras_offset + sizeof(float4x4));
     }
@@ -68,16 +73,10 @@ struct buffer_storage {
     }
 
     RWByteAddressBuffer buffer;
-    
-    // This matches `buffer_storage` in `main.cpp`:
-    static const uint cameras_offset = 64;
-    static const uint vertices_offset = 128;
-    static const uint member_stride = 4;
-    typedef uint member_type;
 };
 
 [vk::binding(0, 0)]
-buffer_storage bindless;
+buffer_storage g_bindless;
 
 struct vs_out {
     float4 position : SV_Position;
@@ -87,9 +86,9 @@ struct vs_out {
 // Generate a demo triangle.
 [shader("vertex")]
 vs_out demo_vertex_main(in uint32_t invocation_index : SV_VertexID) {
-    uint index = bindless.get_index(invocation_index);
-    float4 vert = bindless.get_vertex(index);
-    float4x4 view_proj = mul(bindless.get_proj_matrix(), bindless.get_view_matrix());
+    uint index = g_bindless.get_index(invocation_index);
+    float4 vert = g_bindless.get_vertex(index);
+    float4x4 view_proj = mul(g_bindless.get_proj_matrix(), g_bindless.get_view_matrix());
 
     vert = mul(view_proj, vert);
 

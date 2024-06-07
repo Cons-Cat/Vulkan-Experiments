@@ -41,9 +41,9 @@ inline auto is_aligned(T* p_data, std::uintptr_t alignment) -> bool {
 
 class buffer_storage {
   public:
-    static constexpr unsigned char cameras_offset = 64;
-    static constexpr unsigned char vertices_offset = 128;
-    static constexpr unsigned char member_stride = 4;
+    static constexpr unsigned int cameras_offset = 64;
+    static constexpr unsigned int vertices_offset = 128;
+    static constexpr unsigned int member_stride = 4;
     using member_type = unsigned int;
 
     buffer_storage() : m_data(2'048z) {
@@ -64,15 +64,7 @@ class buffer_storage {
         return m_data.capacity();
     }
 
-    void reset() {
-        // `m_data`'s size member must be reset, but this does not reallocate.
-        m_data.resize(vertices_offset);
-        m_indices.clear();
-
-        // Zero out the prologue data, which is safe and well-defined because
-        // `member_type` and `std::byte` are trivial integers.
-        std::memset(m_data.data(), '\0', vertices_offset);
-    }
+    void reset();
 
     template <typename T>
     void set_at(T&& value, std::size_t byte_offset) {
