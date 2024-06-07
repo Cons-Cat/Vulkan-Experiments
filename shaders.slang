@@ -86,8 +86,7 @@ struct vs_out {
 
 // Generate a demo triangle.
 [shader("vertex")]
-vs_out demo_vertex_main(in float4 dbg_vert : SV_Position,
-                        in uint32_t invocation_index : SV_VertexID) {
+vs_out demo_vertex_main(in uint32_t invocation_index : SV_VertexID) {
     uint index = bindless.get_index(invocation_index);
     float4 vert = bindless.get_vertex(index);
     float4x4 view_proj = mul(bindless.get_proj_matrix(), bindless.get_view_matrix());

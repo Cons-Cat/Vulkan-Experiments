@@ -68,9 +68,6 @@ class buffer_storage {
         // `m_data`'s size member must be reset, but this does not reallocate.
         m_data.resize(vertices_offset);
         m_indices.clear();
-#ifdef DEBUG_VERTICES
-        m_dbg_vertices.clear();
-#endif
 
         // Zero out the prologue data, which is safe and well-defined because
         // `member_type` and `std::byte` are trivial integers.
@@ -172,15 +169,7 @@ class buffer_storage {
     }
 
     std::vector<std::byte> m_data;
-
-#ifndef DEBUG_VERTICES
     std::vector<index_type> m_indices;
-#else
-
-  public:
-    std::vector<vertex> m_dbg_vertices;
-    std::vector<index_type> m_indices;
-#endif
 };
 
 inline vku::GenericBuffer g_buffer;

@@ -127,7 +127,12 @@ auto main() -> int {
     // later.
     g_buffer = vku::GenericBuffer(g_device, g_physical_device.memory_properties,
                                   vk::BufferUsageFlagBits::eStorageBuffer |
-                                      vk::BufferUsageFlagBits::eTransferDst,
+                                      vk::BufferUsageFlagBits::eTransferDst
+#ifdef DEBUG_VERTICES
+                                      | vk::BufferUsageFlagBits::eVertexBuffer |
+                                      vk::BufferUsageFlagBits::eIndexBuffer
+#endif
+                                  ,
                                   g_bindless_data.size());
 
     vku::DescriptorSetMaker dsm;
@@ -211,18 +216,6 @@ auto main() -> int {
     proj[1][1] *= -1.f;
     g_bindless_data.set_proj_matrix(proj);
 
-#ifdef DEBUG_VERTICES
-    g_bindless_data.m_dbg_vertices.resize(2000u);
-    g_bindless_data.m_indices.resize(2000);
-
-    g_dbg_vertex_buffer =
-        vku::VertexBuffer(g_device, g_physical_device.memory_properties,
-                          g_bindless_data.m_dbg_vertices.size());
-    g_dbg_index_buffer =
-        vku::IndexBuffer(g_device, g_physical_device.memory_properties,
-                         g_bindless_data.m_indices.size());
-#endif
-
     // Game loop.
     while (win.ProcessEvents()) {
         g_bindless_data.reset();
@@ -233,16 +226,6 @@ auto main() -> int {
         // Add a cube to be rendered.
         g_bindless_data.push_mesh(cube);
         g_bindless_data.push_indices();
-
-#ifdef DEBUG_VERTICES
-        g_dbg_vertex_buffer.upload(
-            g_device, g_physical_device.memory_properties, g_command_pool,
-            g_graphics_queue, g_bindless_data.m_dbg_vertices);
-
-        g_dbg_index_buffer.upload(g_device, g_physical_device.memory_properties,
-                                  g_command_pool, g_graphics_queue,
-                                  g_bindless_data.m_indices);
-#endif
 
         g_buffer.upload(g_device, g_physical_device.memory_properties,
                         g_command_pool, g_graphics_queue,

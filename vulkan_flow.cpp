@@ -192,7 +192,6 @@ void set_all_render_state(vk::CommandBuffer cmd) {
     cmd.setPrimitiveRestartEnable(vk::False);
 
 #ifdef DEBUG_VERTICES
-    // vk::VertexInputAttributeDescription2EXT vertex_attributes;
     vk::VertexInputBindingDescription2EXT vertex_input_binding{};
     vertex_input_binding.setBinding(0);
     vertex_input_binding.setInputRate(vk::VertexInputRate::eVertex);
@@ -322,8 +321,10 @@ void record_rendering(std::size_t const frame) {
 #ifdef DEBUG_VERTICES
     // TODO: Instead of a dedicated vector for debug verts, just offset into
     // bindless data.
-    cmd.bindVertexBuffers(0, g_dbg_vertex_buffer.buffer(), {0});
-    cmd.bindIndexBuffer(g_dbg_index_buffer.buffer(), 0, vk::IndexType::eUint32);
+    cmd.bindVertexBuffers(0, g_buffer.buffer(),
+                          {g_bindless_data.vertices_offset});
+    cmd.bindIndexBuffer(g_buffer.buffer(), g_bindless_data.get_index_offset(),
+                        vk::IndexType::eUint32);
     cmd.drawIndexed(g_bindless_data.get_index_count(), 1, 0, 0, 0);
 #else
     cmd.draw(g_bindless_data.get_index_count(), 1, 0, 0);
