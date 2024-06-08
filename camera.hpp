@@ -15,8 +15,6 @@ inline glm::mat4 const projection_matrix = glm::perspective(
     0.1f);
 
 struct camera_t {
-    // glm::mat4x4 mat = glm::identity<glm::mat4x4>();
-
     // TODO: Updating position should be done elsewhere.
     glm::vec3 position = {0, 0, 0};
 

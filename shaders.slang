@@ -4,27 +4,26 @@ struct camera {
 
 struct buffer_storage {
     // This matches `buffer_storage` in `main.cpp`:
-    static const uint cameras_offset = 64;
-    static const uint vertices_offset = 128;
-    static const uint member_stride = 4;
+    static const uint cameras_offset = 64u;
+    static const uint vertices_offset = 256u;
+    static const uint member_stride = 4u;
     typedef uint member_type;
 
     [mutating]
-    void set_at<T>(T t, uint byte_offset){
-        buffer.Store<T>(byte_offset, t);
+    void set_at<T>(T value, uint byte_offset){
+        buffer.Store<T>(byte_offset, value);
     }
 
-    T get_at<T>(uint byte_offset){
+    T get_at<T>(uint byte_offset) {
         return buffer.Load<T>(byte_offset);
     }
 
     float4 get_vertex(uint index) {
-        // `vertex` is 16 bytes.
-        return get_at<float4>(vertices_offset + (index * 16));
+        return get_at<float4>(vertices_offset + (index * sizeof(float4)));
     }
 
     uint get_index(uint index) {
-        return get_at<uint>(get_index_offset() + (index * 4));
+        return get_at<uint>(get_index_offset() + (index * sizeof(uint)));
     }
 
     [mutating]
@@ -75,6 +74,7 @@ struct buffer_storage {
     RWByteAddressBuffer buffer;
 };
 
+
 [vk::binding(0, 0)]
 buffer_storage g_bindless;
 
@@ -85,12 +85,15 @@ struct vs_out {
 
 // Generate a demo triangle.
 [shader("vertex")]
-vs_out demo_vertex_main(in uint32_t invocation_index : SV_VertexID) {
+vs_out demo_vertex_main(in float4 v : POSITION,
+                        in uint32_t invocation_index : SV_VertexID) {
     uint index = g_bindless.get_index(invocation_index);
     float4 vert = g_bindless.get_vertex(index);
-    float4x4 view_proj = mul(g_bindless.get_proj_matrix(), g_bindless.get_view_matrix());
+    float4x4 view = g_bindless.get_view_matrix();
+    float4x4 proj = g_bindless.get_proj_matrix();
+    float4x4 view_proj = mul(proj, view);
 
-    vert = mul(view_proj, vert);
+    vert = mul(view_proj, v);
 
     float3 colors[3] = {
         float3 (1.0, 0.0, 0.0), float3 (0.0, 1.0, 0.0), float3 (0.0, 0.0, 1.0),

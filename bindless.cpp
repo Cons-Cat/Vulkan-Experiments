@@ -7,7 +7,8 @@ void buffer_storage::reset() {
 
     // Zero out the prologue data, which is safe and well-defined because
     // `member_type` and `std::byte` are trivial integers.
-    std::memset(m_data.data(), '\0', vertices_offset);
+    // Do not wipe camera data or anything beyond.
+    std::memset(m_data.data(), '\0', cameras_offset);
 }
 
 void buffer_storage::push_mesh(mesh const& mesh) {

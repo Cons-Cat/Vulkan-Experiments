@@ -41,8 +41,11 @@ inline auto is_aligned(T* p_data, std::uintptr_t alignment) -> bool {
 
 class buffer_storage {
   public:
+    // This matches `buffer_storage` in `shaders.slang`:
     static constexpr unsigned int cameras_offset = 64;
-    static constexpr unsigned int vertices_offset = 128;
+    static constexpr unsigned int vertices_offset = 256;
+    static_assert(vertices_offset >= cameras_offset + sizeof(glm::mat4x4) * 2);
+
     static constexpr unsigned int member_stride = 4;
     using member_type = unsigned int;
 
@@ -60,7 +63,7 @@ class buffer_storage {
     }
 
     [[nodiscard]]
-    auto size() const -> std::size_t {
+    auto capacity() const -> std::size_t {
         return m_data.capacity();
     }
 
@@ -93,12 +96,12 @@ class buffer_storage {
     }
 
     void set_index_count(member_type count) {
-        set_at(count, member_stride * 1z);
+        set_at(count, member_stride);
     }
 
     [[nodiscard]]
     auto get_index_count() const -> member_type const& {
-        return get_at<member_type>(member_stride * 1z);
+        return get_at<member_type>(member_stride);
     }
 
     void set_index_offset(member_type count) {

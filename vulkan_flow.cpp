@@ -21,8 +21,10 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
 
     vk::PhysicalDeviceDynamicRenderingFeatures dynamic_rendering_feature(
         vk::True);
+    vk::PhysicalDeviceDepthClipEnableFeaturesEXT depth_clipping(
+        vk::True, &dynamic_rendering_feature);
     vk::PhysicalDeviceBufferDeviceAddressFeaturesKHR device_address_feature(
-        vk::True, vk::True, vk::True, &dynamic_rendering_feature);
+        vk::True, vk::True, vk::True, &depth_clipping);
     vk::PhysicalDeviceShaderObjectFeaturesEXT shader_object_feature(
         vk::True, &device_address_feature);
 
@@ -176,15 +178,15 @@ void render_and_present() {
 
 void set_all_render_state(vk::CommandBuffer cmd) {
     cmd.setLineWidth(1.0);
-    cmd.setCullMode(vk::CullModeFlagBits::eNone);
+    cmd.setCullMode(vk::CullModeFlagBits::eBack);
     cmd.setPolygonModeEXT(vk::PolygonMode::eFill);
     vk::ColorBlendEquationEXT color_blend_equations[4]{};
     cmd.setColorBlendEquationEXT(4, color_blend_equations);
     cmd.setRasterizerDiscardEnable(vk::False);
     cmd.setRasterizationSamplesEXT(vk::SampleCountFlagBits::e1);
 
-    VkSampleMask sample_mask = 0x1;
-    cmd.setSampleMaskEXT(vk::SampleCountFlagBits::e1, &sample_mask);
+    vk::SampleMask sample_mask = 0x1;
+    cmd.setSampleMaskEXT(vk::SampleCountFlagBits::e1, sample_mask);
     cmd.setAlphaToCoverageEnableEXT(vk::False);
 
     cmd.setPrimitiveTopology(vk::PrimitiveTopology::eTriangleList);
@@ -206,13 +208,14 @@ void set_all_render_state(vk::CommandBuffer cmd) {
 #endif
 
     cmd.setDepthClampEnableEXT(vk::False);
+    cmd.setDepthClipEnableEXT(vk::False);
 
     cmd.setDepthBiasEnable(vk::False);
     cmd.setDepthTestEnable(vk::True);
     cmd.setDepthWriteEnable(vk::True);
     cmd.setDepthBoundsTestEnable(vk::False);
 
-    cmd.setFrontFace(vk::FrontFace::eClockwise);
+    cmd.setFrontFace(vk::FrontFace::eCounterClockwise);
     cmd.setDepthCompareOp(vk::CompareOp::eLessOrEqual);
 
     cmd.setStencilTestEnable(vk::False);
@@ -318,8 +321,6 @@ void record_rendering(std::size_t const frame) {
     shader_objects.bind_fragment(cmd, 1);
 
 #ifdef DEBUG_VERTICES
-    // TODO: Instead of a dedicated vector for debug verts, just offset into
-    // bindless data.
     cmd.bindVertexBuffers(0, g_buffer.buffer(),
                           {g_bindless_data.vertices_offset});
     cmd.bindIndexBuffer(g_buffer.buffer(), g_bindless_data.get_index_offset(),

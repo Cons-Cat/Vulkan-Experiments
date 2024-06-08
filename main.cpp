@@ -133,7 +133,7 @@ auto main() -> int {
                                       vk::BufferUsageFlagBits::eIndexBuffer
 #endif
                                   ,
-                                  g_bindless_data.size());
+                                  g_bindless_data.capacity());
 
     vku::DescriptorSetMaker dsm;
     dsm.layout(g_descriptor_layout);
@@ -176,52 +176,55 @@ auto main() -> int {
     mesh cube;
     cube.vertices = {
         // Front face.
-        { 1,  1,  1},
-        {-1,  1,  1},
-        {-1, -1,  1},
-        { 1, -1,  1},
+        { 0.5,  0.5,  0.5},
+        {-0.5,  0.5,  0.5},
+        {-0.5, -0.5,  0.5},
+        { 0.5, -0.5,  0.5},
         // Back face.
-        { 1,  1, -1},
-        {-1,  1, -1},
-        {-1, -1, -1},
-        { 1, -1, -1},
+        { 0.5,  0.5, -0.5},
+        {-0.5,  0.5, -0.5},
+        {-0.5, -0.5, -0.5},
+        { 0.5, -0.5, -0.5},
         // Left face.
-        {-1,  1,  1},
-        {-1,  1, -1},
-        {-1, -1, -1},
-        {-1, -1,  1},
+        {-0.5,  0.5,  0.5},
+        {-0.5,  0.5, -0.5},
+        {-0.5, -0.5, -0.5},
+        {-0.5, -0.5,  0.5},
         // Right face.
-        { 1,  1,  1},
-        { 1, -1,  1},
-        { 1, -1, -1},
-        { 1,  1, -1},
+        { 0.5,  0.5,  0.5},
+        { 0.5, -0.5,  0.5},
+        { 0.5, -0.5, -0.5},
+        { 0.5,  0.5, -0.5},
         // Bottom face.
-        { 1,  1,  1},
-        {-1,  1,  1},
-        {-1,  1, -1},
-        { 1,  1, -1},
+        { 0.5,  0.5,  0.5},
+        {-0.5,  0.5,  0.5},
+        {-0.5,  0.5, -0.5},
+        { 0.5,  0.5, -0.5},
         // Top face.
-        { 1, -1,  1},
-        {-1, -1,  1},
-        {-1, -1, -1},
-        { 1, -1, -1},
+        { 0.5, -0.5,  0.5},
+        {-0.5, -0.5,  0.5},
+        {-0.5, -0.5, -0.5},
+        { 0.5, -0.5, -0.5}
     };
 
-    cube.indices = {
-        0,  1,  2,  2,  3,  0,  4,  7,  6,  6,  5,  4,  8,  9,  10, 10, 11, 8,
-        12, 13, 14, 14, 15, 12, 16, 19, 18, 18, 17, 16, 20, 21, 22, 22, 23, 20,
-    };
+    cube.indices = {0,  1,  2,  2,  3,  0,  4,  7,  6,  6,  5,  4,
+                    8,  9,  10, 10, 11, 8,  12, 13, 14, 14, 15, 12,
+                    16, 19, 18, 18, 17, 16, 20, 21, 22, 22, 23, 20};
 
-    auto proj = projection_matrix;
+    glm::mat4x4 proj = projection_matrix;
     proj[1][1] *= -1.f;
     g_bindless_data.set_proj_matrix(proj);
+
+    g_camera.position.z = 2.f;
 
     // Game loop.
     while (win.ProcessEvents()) {
         g_bindless_data.reset();
+        g_bindless_data.set_proj_matrix(proj);
 
         // Update camera.
-        g_bindless_data.set_view_matrix(g_camera.make_view_matrix());
+        glm::mat4x4 const view = g_camera.make_view_matrix();
+        g_bindless_data.set_view_matrix(view);
 
         // Add a cube to be rendered.
         g_bindless_data.push_mesh(cube);
@@ -229,7 +232,7 @@ auto main() -> int {
 
         g_buffer.upload(g_device, g_physical_device.memory_properties,
                         g_command_pool, g_graphics_queue,
-                        g_bindless_data.data(), g_bindless_data.size());
+                        g_bindless_data.data(), g_bindless_data.capacity());
 
         for (std::size_t i = 0; i < g_command_buffers.size(); ++i) {
             record_rendering(i);
