@@ -192,7 +192,6 @@ void set_all_render_state(vk::CommandBuffer cmd) {
     cmd.setPrimitiveTopology(vk::PrimitiveTopology::eTriangleList);
     cmd.setPrimitiveRestartEnable(vk::False);
 
-#ifdef DEBUG_VERTICES
     vk::VertexInputBindingDescription2EXT vertex_input_binding{};
     vertex_input_binding.setBinding(0);
     vertex_input_binding.setInputRate(vk::VertexInputRate::eVertex);
@@ -203,9 +202,6 @@ void set_all_render_state(vk::CommandBuffer cmd) {
     vertex_attributes.setFormat(vk::Format::eR32G32B32A32Sfloat);
 
     cmd.setVertexInputEXT(1, &vertex_input_binding, 1, &vertex_attributes);
-#else
-    cmd.setVertexInputEXT(0, nullptr, 0, nullptr);
-#endif
 
     cmd.setDepthClampEnableEXT(vk::False);
     cmd.setDepthClipEnableEXT(vk::False);
@@ -320,15 +316,24 @@ void record_rendering(std::size_t const frame) {
     shader_objects.bind_vertex(cmd, 0);
     shader_objects.bind_fragment(cmd, 1);
 
-#ifdef DEBUG_VERTICES
+    // TODO: Use the sized buffers so that debuggers have more info once
+    // RenderDoc supports this feature.
+    // cmd.bindVertexBuffers2(0, g_buffer.buffer(),
+    //                        g_bindless_data.vertices_offset,
+    //                        g_bindless_data.get_vertex_count(),
+    //                        sizeof(vertex));
+
+    // cmd.bindIndexBuffer2KHR(
+    //     g_buffer.buffer(), g_bindless_data.get_index_offset(),
+    //     g_bindless_data.get_index_offset() +
+    //     g_bindless_data.get_index_count(), vk::IndexType::eUint32);
+
     cmd.bindVertexBuffers(0, g_buffer.buffer(),
                           {g_bindless_data.vertices_offset});
     cmd.bindIndexBuffer(g_buffer.buffer(), g_bindless_data.get_index_offset(),
                         vk::IndexType::eUint32);
+
     cmd.drawIndexed(g_bindless_data.get_index_count(), 1, 0, 0, 0);
-#else
-    cmd.draw(g_bindless_data.get_index_count(), 1, 0, 0);
-#endif
 
     cmd.endRendering();
 

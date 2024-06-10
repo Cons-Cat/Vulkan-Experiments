@@ -127,12 +127,9 @@ auto main() -> int {
     // later.
     g_buffer = vku::GenericBuffer(g_device, g_physical_device.memory_properties,
                                   vk::BufferUsageFlagBits::eStorageBuffer |
-                                      vk::BufferUsageFlagBits::eTransferDst
-#ifdef DEBUG_VERTICES
-                                      | vk::BufferUsageFlagBits::eVertexBuffer |
-                                      vk::BufferUsageFlagBits::eIndexBuffer
-#endif
-                                  ,
+                                      vk::BufferUsageFlagBits::eTransferDst |
+                                      vk::BufferUsageFlagBits::eVertexBuffer |
+                                      vk::BufferUsageFlagBits::eIndexBuffer,
                                   g_bindless_data.capacity());
 
     vku::DescriptorSetMaker dsm;

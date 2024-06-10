@@ -45,11 +45,6 @@ target_link_options(game PRIVATE
   #-fsanitize=address
 )
 
-option(DebugVertices OFF)
-if (DebugVertices)
-  target_compile_definitions(game PRIVATE "DEBUG_VERTICES")
-endif()
-
 # TODO: Use `-emit-spirv-directly`.
 # TODO: Support building release mode shaders as well.
 add_custom_target(shaders ALL

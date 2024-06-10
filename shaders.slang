@@ -85,15 +85,13 @@ struct vs_out {
 
 // Generate a demo triangle.
 [shader("vertex")]
-vs_out demo_vertex_main(in float4 v : POSITION,
+vs_out demo_vertex_main(in float4 vert : POSITION,
                         in uint32_t invocation_index : SV_VertexID) {
-    uint index = g_bindless.get_index(invocation_index);
-    float4 vert = g_bindless.get_vertex(index);
     float4x4 view = g_bindless.get_view_matrix();
     float4x4 proj = g_bindless.get_proj_matrix();
     float4x4 view_proj = mul(proj, view);
 
-    vert = mul(view_proj, v);
+    vert = mul(view_proj, vert);
 
     float3 colors[3] = {
         float3 (1.0, 0.0, 0.0), float3 (0.0, 1.0, 0.0), float3 (0.0, 0.0, 1.0),
