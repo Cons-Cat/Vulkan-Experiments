@@ -52,6 +52,15 @@ struct buffer_storage {
     uint get_index_offset() {
         return get_at<member_type>(member_stride * 2);
     }
+
+    [mutating]
+    void set_instance_offset(uint index, member_type new_offset) {
+        return set_at<member_type>(member_stride * 5, new_offset);
+    }
+
+    uint get_instance_offset() {
+        return get_at<member_type>(member_stride * 5);
+    }
     
     [mutating]
     void set_view_matrix(float4x4 mat) {
@@ -83,10 +92,13 @@ struct vs_out {
     float3 color;
 }
 
-// Generate a demo triangle.
 [shader("vertex")]
 vs_out demo_vertex_main(in float4 vert : POSITION,
-                        in uint32_t invocation_index : SV_VertexID) {
+                        in uint invocation_index : SV_VertexID,
+                        in uint instance_index : SV_InstanceID) {
+    vert.x += instance_index*0.5;
+    vert.z -= instance_index*0.5;
+    
     float4x4 view = g_bindless.get_view_matrix();
     float4x4 proj = g_bindless.get_proj_matrix();
     float4x4 view_proj = mul(proj, view);
@@ -120,6 +132,13 @@ frag_out demo_fragment_main(in vs_out input) {
     output.normal = float4(input.color.xy, 0, 1);
     output.id = 32000;
     return output;
+}
+
+[shader("compute")]
+[numthreads(4,1,1)]
+void culling_main(uint3 sv_dispatchThreadID : SV_DispatchThreadID) {
+    printf("Message from shader!");
+    return;
 }
 
 [vk::binding(1, 0)]

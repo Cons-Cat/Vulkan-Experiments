@@ -34,6 +34,12 @@ struct mesh {
     std::vector<index_type> indices;
 };
 
+struct instance {
+    glm::mat4x4 transform;
+    index_type index_offset;
+    index_type index_count;
+};
+
 template <typename T>
 inline auto is_aligned(T* p_data, std::uintptr_t alignment) -> bool {
     return (reinterpret_cast<std::uintptr_t>(p_data) & alignment - 1u) == 0u;
@@ -131,9 +137,18 @@ class buffer_storage {
         return get_at<member_type>(member_stride * 4z);
     }
 
-    void set_texture_count(member_type count) {
-        set_at(count, member_stride * 5z);
+    void set_instance_offset(member_type offset) {
+        set_at(offset, member_stride * 5z);
     }
+
+    [[nodiscard]]
+    auto get_instance_offset() const -> member_type const& {
+        return get_at<member_type>(member_stride * 5z);
+    }
+
+    // void set_texture_count(member_type count) {
+    //     set_at(count, member_stride * 6z);
+    // }
 
     // Camera getters/setters.
     void set_view_matrix(glm::mat4x4 matrix) {
@@ -158,9 +173,15 @@ class buffer_storage {
 
     void push_indices();
 
+    void push_instances(std::vector<instance> const& instance);
+
   private:
     void add_vertex_count(member_type count) {
         set_vertex_count(get_vertex_count() + count);
+    }
+
+    void increment_instance_count() {
+        set_instance_count(get_instance_count() + 1);
     }
 
     std::vector<std::byte> m_data;

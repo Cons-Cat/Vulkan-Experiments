@@ -129,7 +129,8 @@ auto main() -> int {
                                   vk::BufferUsageFlagBits::eStorageBuffer |
                                       vk::BufferUsageFlagBits::eTransferDst |
                                       vk::BufferUsageFlagBits::eVertexBuffer |
-                                      vk::BufferUsageFlagBits::eIndexBuffer,
+                                      vk::BufferUsageFlagBits::eIndexBuffer |
+                                      vk::BufferUsageFlagBits::eIndirectBuffer,
                                   g_bindless_data.capacity());
 
     vku::DescriptorSetMaker dsm;
@@ -157,6 +158,8 @@ auto main() -> int {
     assert(dsu.ok());
 
     // Compile and link shaders.
+    shader_objects.add_compute_shader(getexepath().parent_path() /
+                                      "../culling.spv");
     shader_objects.add_vertex_shader(getexepath().parent_path() /
                                      "../vertex.spv");
     shader_objects.add_fragment_shader(getexepath().parent_path() /
@@ -226,6 +229,12 @@ auto main() -> int {
         // Add a cube to be rendered.
         g_bindless_data.push_mesh(cube);
         g_bindless_data.push_indices();
+
+        struct instance cube_inst{
+            .index_offset = 0u,
+            .index_count = static_cast<index_type>(cube.indices.size()),
+        };
+        g_bindless_data.push_instances({cube_inst, cube_inst});
 
         g_buffer.upload(g_device, g_physical_device.memory_properties,
                         g_command_pool, g_graphics_queue,

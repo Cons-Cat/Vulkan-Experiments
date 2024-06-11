@@ -7,8 +7,8 @@
 auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     vkb::PhysicalDeviceSelector physical_device_selector(instance);
     physical_device_selector.add_required_extension("VK_KHR_dynamic_rendering")
-        .add_required_extension("VK_KHR_swapchain")
-        .add_required_extension("VK_EXT_shader_object");
+        .add_required_extension("VK_EXT_shader_object")
+        .add_required_extension("VK_KHR_buffer_device_address");
 
     auto maybe_physical_device =
         physical_device_selector.set_surface(surface).select();
@@ -19,20 +19,23 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     g_physical_device = *maybe_physical_device;
     std::cout << g_physical_device.name << '\n';
 
+    vk::PhysicalDeviceVulkan12Features vulkan_1_2_features{};
+    vulkan_1_2_features.setDrawIndirectCount(vk::True);
+    vulkan_1_2_features.setBufferDeviceAddress(vk::True);
+
     vk::PhysicalDeviceDynamicRenderingFeatures dynamic_rendering_feature(
-        vk::True);
+        vk::True, &vulkan_1_2_features);
     vk::PhysicalDeviceDepthClipEnableFeaturesEXT depth_clipping(
         vk::True, &dynamic_rendering_feature);
-    vk::PhysicalDeviceBufferDeviceAddressFeaturesKHR device_address_feature(
-        vk::True, vk::True, vk::True, &depth_clipping);
     vk::PhysicalDeviceShaderObjectFeaturesEXT shader_object_feature(
-        vk::True, &device_address_feature);
+        vk::True, &depth_clipping);
 
     vkb::DeviceBuilder device_builder{g_physical_device};
     device_builder.add_pNext(&shader_object_feature);
     auto maybe_device = device_builder.build();
     if (!maybe_device) {
         std::cout << maybe_device.error().message() << '\n';
+        std::quick_exit(1);
     }
     auto device = *maybe_device;
 
@@ -57,6 +60,7 @@ void create_swapchain() {
     if (!maybe_swapchain) {
         std::cout << maybe_swapchain.error().message() << ' '
                   << maybe_swapchain.vk_result() << '\n';
+        std::quick_exit(1);
     }
 
     // Destroy the old swapchain if it exists, and create a new one.
@@ -242,6 +246,7 @@ void set_all_render_state(vk::CommandBuffer cmd) {
 void record_rendering(std::size_t const frame) {
     vk::CommandBuffer& cmd = g_command_buffers[frame];
     vk::CommandBufferBeginInfo begin_info;
+
     cmd.begin(begin_info);
 
     vk::ClearColorValue clear_color = {1.f, 0.f, 1.f, 0.f};
@@ -308,13 +313,17 @@ void record_rendering(std::size_t const frame) {
     g_depth_image.setLayout(cmd, vk::ImageLayout::eDepthAttachmentOptimal,
                             vk::ImageAspectFlagBits::eDepth);
 
+    // Modify the bindless buffer with this culling shader.
+    shader_objects.bind_compute(cmd, 0);
+    cmd.dispatch(4, 0, 0);
+
     cmd.beginRendering(rendering_info);
 
     set_all_render_state(cmd);
 
-    // Draw world.
-    shader_objects.bind_vertex(cmd, 0);
-    shader_objects.bind_fragment(cmd, 1);
+    // Rasterizing color, normals, IDs, and depth for the world in view.
+    shader_objects.bind_vertex(cmd, 1);
+    shader_objects.bind_fragment(cmd, 2);
 
     // TODO: Use the sized buffers so that debuggers have more info once
     // RenderDoc supports this feature.
@@ -333,7 +342,11 @@ void record_rendering(std::size_t const frame) {
     cmd.bindIndexBuffer(g_buffer.buffer(), g_bindless_data.get_index_offset(),
                         vk::IndexType::eUint32);
 
-    cmd.drawIndexed(g_bindless_data.get_index_count(), 1, 0, 0, 0);
+    // 16 is the byte offset produced by `.get_instance_count()`.
+
+    cmd.drawIndexedIndirectCount(
+        g_buffer.buffer(), g_bindless_data.get_instance_offset(),
+        g_buffer.buffer(), 16, 2, sizeof(vk::DrawIndexedIndirectCommand));
 
     cmd.endRendering();
 
@@ -381,8 +394,8 @@ void record_rendering(std::size_t const frame) {
 
     cmd.beginRendering(rendering_info);
 
-    shader_objects.bind_vertex(cmd, 2);
-    shader_objects.bind_fragment(cmd, 3);
+    shader_objects.bind_vertex(cmd, 3);
+    shader_objects.bind_fragment(cmd, 4);
 
     cmd.draw(3, 1, 0, 0);
 

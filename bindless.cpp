@@ -35,11 +35,40 @@ void buffer_storage::push_mesh(mesh const& mesh) {
 }
 
 void buffer_storage::push_indices() {
+    // This assumes that no instances have been pushed yet.
+    assert(get_instance_count() == 0);
+
     set_index_count(static_cast<member_type>(m_indices.size()));
     set_index_offset(static_cast<member_type>(m_data.size()));
 
     // Bit-copy the indices into `m_data`.
     std::byte* p_destination = m_data.data() + m_data.size();
+
+    // Reserve storage in `m_data` for indices.
+    m_data.resize(m_data.size() + (m_indices.size() * sizeof(index_type)));
+
     std::memcpy(p_destination, m_indices.data(),
                 m_indices.size() * sizeof(index_type));
+
+    // Place instance immediately after indices.
+    set_instance_offset(static_cast<member_type>(m_data.size()));
+}
+
+void buffer_storage::push_instances(std::vector<instance> const& instances) {
+    increment_instance_count();
+    std::byte* p_destination = m_data.data() + m_data.size();
+
+    vk::DrawIndexedIndirectCommand command;
+    command.setFirstIndex(instances[0].index_offset)
+        .setFirstInstance(0)
+        .setIndexCount(instances[0].index_count)
+        .setInstanceCount(static_cast<unsigned>(instances.size()))
+        .setVertexOffset(0);
+
+    // Reserve storage in `m_data` for this instance.
+    m_data.resize(m_data.size() + sizeof(command));
+
+    // TODO: Ensure this copy is vectorized. It could be one or two SIMD stores.
+    // Bit-copy the instances command into `m_data`.
+    __builtin_memcpy_inline(p_destination, &command, sizeof(command));
 }
