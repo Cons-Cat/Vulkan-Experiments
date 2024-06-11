@@ -47,7 +47,8 @@ target_link_options(game PRIVATE
 
 # TODO: Use `-emit-spirv-directly`.
 # TODO: Support building release mode shaders as well.
-add_custom_target(shaders ALL
+# TODO: Add `BYPRODUCTS`.
+add_custom_target(shaders
   # Vertex shader.
   COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -o ${CMAKE_CURRENT_BINARY_DIR}/vertex.spv -profile sm_6_6 -entry demo_vertex_main -g -O2 -Wno-39001
   # Fragment shader.
@@ -85,6 +86,7 @@ target_compile_definitions(game PRIVATE
   VULKAN_HPP_HAS_SPACESHIP_OPERATOR
   VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
   GLM_ENABLE_EXPERIMENTAL
+  GLM_FORCE_DEPTH_ZERO_TO_ONE
 )
 
 # WSI Layers.

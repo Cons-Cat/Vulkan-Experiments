@@ -107,7 +107,7 @@ auto main() -> int {
     g_pipeline_layout = g_device.createPipelineLayout(pipeline_info);
 
     std::vector<vk::DescriptorPoolSize> pool_sizes;
-    pool_sizes.emplace_back(vk::DescriptorType::eStorageBuffer, 2);
+    pool_sizes.emplace_back(vk::DescriptorType::eStorageBuffer, 1);
     pool_sizes.emplace_back(vk::DescriptorType::eCombinedImageSampler, 3);
 
     // Create an arbitrary number of descriptors in a pool.
@@ -117,6 +117,7 @@ auto main() -> int {
         .setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet)
         .setPoolSizes(pool_sizes)
         .setMaxSets(1);
+
     vk::DescriptorPool descriptor_pool =
         g_device.createDescriptorPool(descriptor_pool_info);
     defer {

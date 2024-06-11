@@ -83,7 +83,6 @@ struct buffer_storage {
     RWByteAddressBuffer buffer;
 };
 
-
 [vk::binding(0, 0)]
 buffer_storage g_bindless;
 
@@ -131,6 +130,7 @@ frag_out demo_fragment_main(in vs_out input) {
     output.color = float4(input.color, 1);
     output.normal = float4(input.color.xy, 0, 1);
     output.id = 32000;
+    
     return output;
 }
 

@@ -9,10 +9,10 @@
 #include "globals.hpp"
 
 // TODO: Make this `constexpr`.
-inline glm::mat4 const projection_matrix = glm::perspective(
+inline glm::mat4x4 const projection_matrix = glm::perspective(
     glm::radians(70.f),
-    static_cast<float>(game_width) / static_cast<float>(game_height), 10000.f,
-    0.1f);
+    static_cast<float>(game_width) / static_cast<float>(game_height), 0.001f,
+    10'000.f);
 
 struct camera_t {
     // TODO: Updating position should be done elsewhere.

@@ -52,4 +52,5 @@ inline vk::Device g_device;
 inline constexpr uint32_t max_frames_in_flight = 3;
 inline constexpr uint32_t game_width = 480;
 inline constexpr uint32_t game_height = 320;
-inline constexpr auto depth_format = vk::Format::eD32Sfloat;
+// TODO: Dynamically select a supported depth format.
+inline constexpr auto depth_format = vk::Format::eD16Unorm;

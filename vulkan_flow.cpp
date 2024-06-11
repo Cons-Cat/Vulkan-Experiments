@@ -184,14 +184,14 @@ void set_all_render_state(vk::CommandBuffer cmd) {
     cmd.setLineWidth(1.0);
     cmd.setCullMode(vk::CullModeFlagBits::eBack);
     cmd.setPolygonModeEXT(vk::PolygonMode::eFill);
-    vk::ColorBlendEquationEXT color_blend_equations[4]{};
-    cmd.setColorBlendEquationEXT(4, color_blend_equations);
+    vk::ColorBlendEquationEXT color_blend_equations[3]{};
+    cmd.setColorBlendEquationEXT(3, color_blend_equations);
     cmd.setRasterizerDiscardEnable(vk::False);
     cmd.setRasterizationSamplesEXT(vk::SampleCountFlagBits::e1);
 
     vk::SampleMask sample_mask = 0x1;
     cmd.setSampleMaskEXT(vk::SampleCountFlagBits::e1, sample_mask);
-    cmd.setAlphaToCoverageEnableEXT(vk::False);
+    cmd.setAlphaToCoverageEnableEXT(vk::True);
 
     cmd.setPrimitiveTopology(vk::PrimitiveTopology::eTriangleList);
     cmd.setPrimitiveRestartEnable(vk::False);
@@ -216,7 +216,7 @@ void set_all_render_state(vk::CommandBuffer cmd) {
     cmd.setDepthBoundsTestEnable(vk::False);
 
     cmd.setFrontFace(vk::FrontFace::eCounterClockwise);
-    cmd.setDepthCompareOp(vk::CompareOp::eLessOrEqual);
+    cmd.setDepthCompareOp(vk::CompareOp::eLess);
 
     cmd.setStencilTestEnable(vk::False);
 
@@ -251,7 +251,7 @@ void record_rendering(std::size_t const frame) {
 
     vk::ClearColorValue clear_color = {1.f, 0.f, 1.f, 0.f};
     vk::ClearColorValue black_clear_color = {0, 0, 0, 1};
-    vk::ClearColorValue depth_clear_color = {1.f, 0.f, 1.f, 1.f};
+    vk::ClearColorValue depth_clear_color = {1.f, 1.f, 1.f, 1.f};
 
     vk::Viewport viewport;
     viewport.setWidth(game_width)
@@ -298,8 +298,7 @@ void record_rendering(std::size_t const frame) {
         .setImageLayout(vk::ImageLayout::eDepthAttachmentOptimal)
         .setImageView(g_depth_image.imageView())
         .setLoadOp(vk::AttachmentLoadOp::eClear)
-        .setStoreOp(vk::AttachmentStoreOp::eStore)
-        .setResolveMode(vk::ResolveModeFlagBits::eNone);
+        .setStoreOp(vk::AttachmentStoreOp::eStore);
 
     vk::RenderingInfo rendering_info;
     rendering_info.setRenderArea(render_area)
@@ -355,6 +354,7 @@ void record_rendering(std::size_t const frame) {
     g_normal_image.setLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
     g_id_image.setLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
 
+    // The hard-coded compositing triangle does not require depth-testing.
     cmd.setDepthTestEnable(vk::False);
     cmd.setDepthWriteEnable(vk::False);
 
