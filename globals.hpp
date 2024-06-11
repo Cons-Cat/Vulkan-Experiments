@@ -28,6 +28,7 @@ inline std::vector<VkImage> g_swapchain_images{};
 inline std::vector<VkImageView> g_swapchain_views{};
 inline vku::ColorAttachmentImage g_color_image;
 inline vku::ColorAttachmentImage g_normal_image;
+inline vku::ColorAttachmentImage g_xyz_image;
 inline vku::ColorAttachmentImage g_id_image;
 inline vku::DepthStencilImage g_depth_image;
 

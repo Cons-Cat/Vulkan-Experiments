@@ -88,6 +88,7 @@ buffer_storage g_bindless;
 
 struct vs_out {
     float4 position : SV_Position;
+    float3 xyz;
     float3 color;
 }
 
@@ -97,7 +98,8 @@ vs_out demo_vertex_main(in float4 vert : POSITION,
                         in uint instance_index : SV_InstanceID) {
     vert.x += instance_index*0.5;
     vert.z -= instance_index*0.5;
-    
+    float3 xyz = vert.xyz;
+ 
     float4x4 view = g_bindless.get_view_matrix();
     float4x4 proj = g_bindless.get_proj_matrix();
     float4x4 view_proj = mul(proj, view);
@@ -110,18 +112,14 @@ vs_out demo_vertex_main(in float4 vert : POSITION,
 
     float3 color = colors[invocation_index % 3];
 
-    return {vert, color};
+    return {vert, xyz, color};
 }
 
 struct frag_out {
-    [vk::location(0)]
     float4 color : SV_Target0;
-
-    [vk::location(1)]
     float4 normal : SV_Target1;
-
-    [vk::location(2)]
-    uint32_t id : SV_Target2;
+    float4 xyz : SV_Target2;
+    uint32_t id : SV_Target3;
 };
 
 [shader("fragment")]
@@ -129,8 +127,9 @@ frag_out demo_fragment_main(in vs_out input) {
     frag_out output = {};
     output.color = float4(input.color, 1);
     output.normal = float4(input.color.xy, 0, 1);
+    output.xyz = float4(input.xyz, 1);
     output.id = 32000;
-    
+
     return output;
 }
 
@@ -160,8 +159,12 @@ float4 composite_vertex_main(uint32_t vertex : SV_VertexID)
 }
 
 [shader("fragment")]
-float4 composite_fragment_main(float2 uv : SV_Position)
-: SV_Target0 {
+float4 composite_fragment_main(float2 uv : SV_Position) : SV_Target0 {
+    // return float4
+    //     (float3(
+    //         depth_texture.Load(uint3(uint(uv.x), uint(uv.y), 0))
+    //     ), 1);
+    
     uint adjacencies = 0;
     
     const uint32_t x = uint(uv.x);    

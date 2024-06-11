@@ -62,6 +62,10 @@ auto main() -> int {
         g_device, g_physical_device.memory_properties, game_width, game_height,
         vk::Format::eR32G32B32A32Sfloat);
 
+    g_xyz_image = vku::ColorAttachmentImage(
+        g_device, g_physical_device.memory_properties, game_width, game_height,
+        vk::Format::eR32G32B32A32Sfloat);
+
     g_id_image = vku::ColorAttachmentImage(
         g_device, g_physical_device.memory_properties, game_width, game_height,
         vk::Format::eR32Uint);
@@ -94,9 +98,9 @@ auto main() -> int {
                 // Bindless storage buffer.
                 0, vk::DescriptorType::eStorageBuffer,
                 vk::ShaderStageFlagBits::eAllGraphics, 1)
-            // Color/normal maps.
+            // Color/normal/xyz maps.
             .image(1, vk::DescriptorType::eCombinedImageSampler,
-                   vk::ShaderStageFlagBits::eFragment, 2)
+                   vk::ShaderStageFlagBits::eFragment, 3)
             // Instance ID map.
             .image(2, vk::DescriptorType::eCombinedImageSampler,
                    vk::ShaderStageFlagBits::eFragment, 1)
@@ -113,7 +117,7 @@ auto main() -> int {
 
     std::vector<vk::DescriptorPoolSize> pool_sizes;
     pool_sizes.emplace_back(vk::DescriptorType::eStorageBuffer, 1);
-    pool_sizes.emplace_back(vk::DescriptorType::eCombinedImageSampler, 4);
+    pool_sizes.emplace_back(vk::DescriptorType::eCombinedImageSampler, 5);
 
     // Create an arbitrary number of descriptors in a pool.
     // Allow the descriptors to be freed, possibly not optimal behaviour.
@@ -149,9 +153,14 @@ auto main() -> int {
         .buffer(g_buffer.buffer(), 0, vk::WholeSize)
 
         .beginImages(1, 0, vk::DescriptorType::eCombinedImageSampler)
+        // Color map.
         .image(nearest_sampler, g_color_image.imageView(),
                vk::ImageLayout::eShaderReadOnlyOptimal)
+        // Normal map.
         .image(nearest_sampler, g_normal_image.imageView(),
+               vk::ImageLayout::eShaderReadOnlyOptimal)
+        // XYZ map.
+        .image(nearest_sampler, g_xyz_image.imageView(),
                vk::ImageLayout::eShaderReadOnlyOptimal)
 
         .beginImages(2, 0, vk::DescriptorType::eCombinedImageSampler)

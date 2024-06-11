@@ -233,22 +233,20 @@ void set_all_render_state(vk::CommandBuffer cmd) {
     cmd.setColorBlendEnableEXT(1, vk::False);
     cmd.setColorBlendEnableEXT(2, vk::False);
     cmd.setColorBlendEnableEXT(3, vk::False);
+    cmd.setColorBlendEnableEXT(4, vk::False);
 
     constexpr vk::Flags color_write_mask =
         vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
         vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
     cmd.setColorWriteMaskEXT(0, 1, &color_write_mask);
-
-    constexpr vk::Flags normal_write_mask =
-        vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-        vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
-    cmd.setColorWriteMaskEXT(1, 1, &normal_write_mask);
+    cmd.setColorWriteMaskEXT(1, 1, &color_write_mask);
+    cmd.setColorWriteMaskEXT(2, 1, &color_write_mask);
 
     constexpr vk::Flags id_write_mask = vk::ColorComponentFlagBits::eR;
-    cmd.setColorWriteMaskEXT(2, 1, &id_write_mask);
+    cmd.setColorWriteMaskEXT(3, 1, &id_write_mask);
 
     constexpr vk::Flags depth_write_mask = vk::ColorComponentFlagBits::eR;
-    cmd.setColorWriteMaskEXT(3, 1, &depth_write_mask);
+    cmd.setColorWriteMaskEXT(4, 1, &depth_write_mask);
 
     // Bind color attachments to descriptors so they can be read after being
     // written.
@@ -282,7 +280,9 @@ void record_rendering(std::size_t const frame) {
     cmd.setScissorWithCount(1, &scissor);
 
     vk::RenderingAttachmentInfoKHR color_attachment_info;
-    color_attachment_info.setClearValue(clear_color)
+    color_attachment_info
+        .setClearValue(clear_color)
+
         .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
         .setImageView(g_color_image.imageView())
         .setLoadOp(vk::AttachmentLoadOp::eClear)
@@ -295,6 +295,12 @@ void record_rendering(std::size_t const frame) {
         .setLoadOp(vk::AttachmentLoadOp::eClear)
         .setStoreOp(vk::AttachmentStoreOp::eStore);
 
+    vk::RenderingAttachmentInfoKHR xyz_attachment_info;
+    xyz_attachment_info.setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
+        .setImageView(g_xyz_image.imageView())
+        .setLoadOp(vk::AttachmentLoadOp::eDontCare)
+        .setStoreOp(vk::AttachmentStoreOp::eStore);
+
     vk::RenderingAttachmentInfoKHR id_attachment_info;
     id_attachment_info.setClearValue(black_clear_color)
         .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
@@ -304,9 +310,7 @@ void record_rendering(std::size_t const frame) {
         .setResolveMode(vk::ResolveModeFlagBits::eNone);
 
     std::array attachments = {color_attachment_info, normal_attachment_info,
-                              id_attachment_info};
-    // std::array<vk::RenderingAttachmentInfoKHR, 4> attachments = {
-    //     color_attachment_info, normal_attachment_info, id_attachment_info};
+                              xyz_attachment_info, id_attachment_info};
 
     vk::RenderingAttachmentInfoKHR depth_attachment_info;
     depth_attachment_info.setClearValue(depth_clear_color)
@@ -323,6 +327,7 @@ void record_rendering(std::size_t const frame) {
 
     g_color_image.setLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
     g_normal_image.setLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
+    g_xyz_image.setLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
     g_id_image.setLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
     g_depth_image.setLayout(cmd, vk::ImageLayout::eDepthAttachmentOptimal,
                             vk::ImageAspectFlagBits::eDepth);
@@ -367,24 +372,14 @@ void record_rendering(std::size_t const frame) {
     // Post processing.
     g_color_image.setLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
     g_normal_image.setLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
+    g_xyz_image.setLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
     g_id_image.setLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
+    g_depth_image.setLayout(cmd, vk::ImageLayout::eDepthReadOnlyOptimal,
+                            vk::ImageAspectFlagBits::eDepth);
 
     // The hard-coded compositing triangle does not require depth-testing.
     cmd.setDepthTestEnable(vk::False);
     cmd.setDepthWriteEnable(vk::False);
-    cmd.setCullMode(vk::CullModeFlagBits::eNone);
-
-    g_depth_image.setLayout(cmd, vk::ImageLayout::eDepthReadOnlyOptimal,
-                            vk::ImageAspectFlagBits::eDepth);
-
-    depth_attachment_info
-        .setImageLayout(vk::ImageLayout::eDepthAttachmentOptimal)
-        .setImageView(g_depth_image.imageView())
-        .setLoadOp(vk::AttachmentLoadOp::eLoad)
-        .setStoreOp(vk::AttachmentStoreOp::eDontCare);
-
-    // attachments = {color_attachment_info, normal_attachment_info,
-    //                id_attachment_info, depth_attachment_info};
 
     // Transition swapchain image layout to color write.
     VkImageMemoryBarrier const render_memory_barrier{
