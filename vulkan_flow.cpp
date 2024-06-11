@@ -5,10 +5,20 @@
 #include "shader_objects.hpp"
 
 auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
+    vk::PhysicalDeviceFeatures vulkan_1_0_features;
+    vulkan_1_0_features.setSampleRateShading(vk::True);
+    vulkan_1_0_features.setShaderStorageImageMultisample(vk::True);
+
+    vk::PhysicalDeviceVulkan12Features vulkan_1_2_features{};
+    vulkan_1_2_features.setDrawIndirectCount(vk::True);
+    vulkan_1_2_features.setBufferDeviceAddress(vk::True);
+
     vkb::PhysicalDeviceSelector physical_device_selector(instance);
     physical_device_selector.add_required_extension("VK_KHR_dynamic_rendering")
         .add_required_extension("VK_EXT_shader_object")
-        .add_required_extension("VK_KHR_buffer_device_address");
+        .add_required_extension("VK_KHR_buffer_device_address")
+        .set_required_features(vulkan_1_0_features)
+        .set_required_features_12(vulkan_1_2_features);
 
     auto maybe_physical_device =
         physical_device_selector.set_surface(surface).select();
@@ -19,12 +29,8 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     g_physical_device = *maybe_physical_device;
     std::cout << g_physical_device.name << '\n';
 
-    vk::PhysicalDeviceVulkan12Features vulkan_1_2_features{};
-    vulkan_1_2_features.setDrawIndirectCount(vk::True);
-    vulkan_1_2_features.setBufferDeviceAddress(vk::True);
-
     vk::PhysicalDeviceDynamicRenderingFeatures dynamic_rendering_feature(
-        vk::True, &vulkan_1_2_features);
+        vk::True);
     vk::PhysicalDeviceDepthClipEnableFeaturesEXT depth_clipping(
         vk::True, &dynamic_rendering_feature);
     vk::PhysicalDeviceShaderObjectFeaturesEXT shader_object_feature(
