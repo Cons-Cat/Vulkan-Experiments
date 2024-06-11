@@ -287,10 +287,10 @@ void record_rendering(std::size_t const frame) {
         .setStoreOp(vk::AttachmentStoreOp::eStore);
 
     vk::RenderingAttachmentInfoKHR normal_attachment_info;
-    normal_attachment_info.setClearValue(black_clear_color)
+    normal_attachment_info
         .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
         .setImageView(g_normal_image.imageView())
-        .setLoadOp(vk::AttachmentLoadOp::eClear)
+        .setLoadOp(vk::AttachmentLoadOp::eDontCare)
         .setStoreOp(vk::AttachmentStoreOp::eStore);
 
     vk::RenderingAttachmentInfoKHR xyz_attachment_info;
