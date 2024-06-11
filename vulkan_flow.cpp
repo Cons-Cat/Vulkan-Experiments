@@ -280,9 +280,7 @@ void record_rendering(std::size_t const frame) {
     cmd.setScissorWithCount(1, &scissor);
 
     vk::RenderingAttachmentInfoKHR color_attachment_info;
-    color_attachment_info
-        .setClearValue(clear_color)
-
+    color_attachment_info.setClearValue(clear_color)
         .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
         .setImageView(g_color_image.imageView())
         .setLoadOp(vk::AttachmentLoadOp::eClear)
@@ -363,9 +361,9 @@ void record_rendering(std::size_t const frame) {
 
     // 16 is the byte offset produced by `.get_instance_count()`.
 
-    cmd.drawIndexedIndirectCount(
-        g_buffer.buffer(), g_bindless_data.get_instance_offset(),
-        g_buffer.buffer(), 16, 2, sizeof(vk::DrawIndexedIndirectCommand));
+    cmd.drawIndexedIndirectCount(g_buffer.buffer(),
+                                 g_bindless_data.get_instance_offset(),
+                                 g_buffer.buffer(), 16, 2, 32);
 
     cmd.endRendering();
 

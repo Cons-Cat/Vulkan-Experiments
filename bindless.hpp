@@ -146,9 +146,14 @@ class buffer_storage {
         return get_at<member_type>(member_stride * 5z);
     }
 
-    // void set_texture_count(member_type count) {
-    //     set_at(count, member_stride * 6z);
-    // }
+    void set_properties_offset(member_type offset) {
+        set_at(offset, member_stride * 6z);
+    }
+
+    [[nodiscard]]
+    auto get_properties_offset() const -> member_type const& {
+        return get_at<member_type>(member_stride * 6z);
+    }
 
     // Camera getters/setters.
     void set_view_matrix(glm::mat4x4 matrix) {
@@ -175,6 +180,13 @@ class buffer_storage {
 
     void push_instances(std::vector<instance> const& instance);
 
+    void push_properties();
+
+    struct alignas(16) property {
+        glm::mat4x4 transform;
+        std::uint32_t id;
+    };
+
   private:
     void add_vertex_count(member_type count) {
         set_vertex_count(get_vertex_count() + count);
@@ -186,9 +198,12 @@ class buffer_storage {
 
     std::vector<std::byte> m_data;
     std::vector<index_type> m_indices;
+
+    std::vector<property> m_instance_properties;
 };
 
 inline vku::GenericBuffer g_buffer;
+inline vku::GenericBuffer g_instance_properties;
 
 // Bindless storage buffer.
 inline buffer_storage g_bindless_data;

@@ -26,6 +26,15 @@ struct buffer_storage {
         return get_at<uint>(get_index_offset() + (index * sizeof(uint)));
     }
 
+    struct property {
+        float4x4 transform;
+        uint id;
+    };
+
+    property get_property(uint index) {
+        return get_at<property>(get_properties_offset() + (index * 80));
+    }
+
     [mutating]
     void set_vertex_count(uint index, member_type new_vertex_count) {
         return set_at<member_type>(0, new_vertex_count);
@@ -62,6 +71,16 @@ struct buffer_storage {
         return get_at<member_type>(member_stride * 5);
     }
     
+
+    [mutating]
+    void set_properties_offset(uint index, member_type new_offset) {
+        return set_at<member_type>(member_stride * 6, new_offset);
+    }
+
+    uint get_properties_offset() {
+        return get_at<member_type>(member_stride * 6);
+    }
+    
     [mutating]
     void set_view_matrix(float4x4 mat) {
         return set_at<float4x4>(mat, cameras_offset);
@@ -80,26 +99,29 @@ struct buffer_storage {
         return get_at<float4x4>(cameras_offset + sizeof(float4x4));
     }
 
+    [vk::binding(0, 0)]
     RWByteAddressBuffer buffer;
 };
 
-[vk::binding(0, 0)]
 buffer_storage g_bindless;
 
 struct vs_out {
     float4 position : SV_Position;
     float3 xyz;
     float3 color;
+    uint id;
 }
 
 [shader("vertex")]
 vs_out demo_vertex_main(in float4 vert : POSITION,
                         in uint invocation_index : SV_VertexID,
                         in uint instance_index : SV_InstanceID) {
-    vert.x += instance_index*0.5;
-    vert.z -= instance_index*0.5;
     float3 xyz = vert.xyz;
- 
+
+    // Bring vertex into world space:
+    vert = mul(g_bindless.get_property(instance_index).transform, vert);
+
+    // Bring vertex into projection space:
     float4x4 view = g_bindless.get_view_matrix();
     float4x4 proj = g_bindless.get_proj_matrix();
     float4x4 view_proj = mul(proj, view);
@@ -112,7 +134,7 @@ vs_out demo_vertex_main(in float4 vert : POSITION,
 
     float3 color = colors[invocation_index % 3];
 
-    return {vert, xyz, color};
+    return {vert, xyz, color, g_bindless.get_property(instance_index).id};
 }
 
 struct frag_out {
@@ -128,7 +150,7 @@ frag_out demo_fragment_main(in vs_out input) {
     output.color = float4(input.color, 1);
     output.normal = float4(input.color.xy, 0, 1);
     output.xyz = float4(input.xyz, 1);
-    output.id = 32000;
+    output.id = input.id;
 
     return output;
 }

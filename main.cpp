@@ -247,11 +247,27 @@ auto main() -> int {
         g_bindless_data.push_mesh(cube);
         g_bindless_data.push_indices();
 
-        struct instance cube_inst{
+        glm::mat4x4 a = glm::identity<glm::mat4x4>();
+        a = glm::rotate(a, 45.f, {1, 1, 1});
+        a = glm::translate(a, {-1, 0, 0});
+
+        glm::mat4x4 b = glm::identity<glm::mat4x4>();
+        b = glm::rotate(b, 25.f, {1, 0, 1});
+        b = glm::translate(b, {1, 0.15f, 0.5f});
+
+        struct instance cube_inst1{
+            .transform = a,
             .index_offset = 0u,
             .index_count = static_cast<index_type>(cube.indices.size()),
         };
-        g_bindless_data.push_instances({cube_inst, cube_inst});
+
+        struct instance cube_inst2{
+            .transform = b,
+            .index_offset = 0u,
+            .index_count = static_cast<index_type>(cube.indices.size()),
+        };
+        g_bindless_data.push_instances({cube_inst1, cube_inst2});
+        g_bindless_data.push_properties();
 
         g_buffer.upload(g_device, g_physical_device.memory_properties,
                         g_command_pool, g_graphics_queue,

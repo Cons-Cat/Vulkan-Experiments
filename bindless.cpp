@@ -1,9 +1,14 @@
 #include "bindless.hpp"
 
+static unsigned next_instance_id = 0;
+
 void buffer_storage::reset() {
+    next_instance_id = 0;
+
     // `m_data`'s size member must be reset, but this does not reallocate.
     m_data.resize(vertices_offset);
     m_indices.clear();
+    m_instance_properties.clear();
 
     // Zero out the prologue data, which is safe and well-defined because
     // `member_type` and `std::byte` are trivial integers.
@@ -65,10 +70,29 @@ void buffer_storage::push_instances(std::vector<instance> const& instances) {
         .setInstanceCount(static_cast<unsigned>(instances.size()))
         .setVertexOffset(0);
 
-    // Reserve storage in `m_data` for this instance.
-    m_data.resize(m_data.size() + sizeof(command));
+    // Reserve storage in `m_data` for these instances.
+    m_data.resize(m_data.size() + 32);
+    __builtin_memcpy_inline(p_destination, &command, 32);
 
-    // TODO: Ensure this copy is vectorized. It could be one or two SIMD stores.
-    // Bit-copy the instances command into `m_data`.
-    __builtin_memcpy_inline(p_destination, &command, sizeof(command));
+    // Copy the instance's properties into `m_instance_properties` to be
+    // concatenated onto `m_data` in the future with `.push_indices()`.
+    for (auto&& i : instances) {
+        ++next_instance_id;
+        m_instance_properties.push_back(
+            {.transform = i.transform, .id = next_instance_id});
+    }
+}
+
+void buffer_storage::push_properties() {
+    std::byte* p_destination = m_data.data() + m_data.size();
+    assert(is_aligned(p_destination, alignof(property)));
+
+    set_properties_offset(static_cast<member_type>(m_data.size()));
+
+    // Reserve storage in `m_data` for command properties.
+    m_data.resize(m_data.size() +
+                  (m_instance_properties.size() * sizeof(property)));
+
+    std::memcpy(p_destination, m_instance_properties.data(),
+                m_instance_properties.size() * sizeof(property));
 }
