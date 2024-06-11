@@ -5,14 +5,14 @@ project(game LANGUAGES CXX)
 add_executable(game)
 set_property(TARGET game PROPERTY CXX_STANDARD 26)
 target_sources(game PRIVATE
-  main.cpp
-  camera.cpp
-  window.cpp
-  bindless.cpp
-  vulkan_flow.cpp
+  src/main.cpp
+  src/camera.cpp
+  src/window.cpp
+  src/bindless.cpp
+  src/vulkan_flow.cpp
 )
 
-target_include_directories(game PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(game PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/)
 
 target_compile_options(game PRIVATE
   -mavx2
@@ -47,17 +47,19 @@ target_link_options(game PRIVATE
 
 # TODO: Support building release mode shaders as well.
 # TODO: Add `BYPRODUCTS`.
+set(shaders ${CMAKE_SOURCE_DIR}/src/shaders.slang)
+
 add_custom_target(shaders
   # Vertex shader.
-  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -o ${CMAKE_CURRENT_BINARY_DIR}/vertex.spv -profile sm_6_6 -entry demo_vertex_main -g -O2 -Wno-39001 -emit-spirv-directly
+  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/vertex.spv -profile sm_6_6 -entry demo_vertex_main -g -O2 -Wno-39001 -emit-spirv-directly
   # Fragment shader.
-  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -o ${CMAKE_CURRENT_BINARY_DIR}/fragment.spv -entry demo_fragment_main -g -O2 -Wno-39001 -emit-spirv-directly
+  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/fragment.spv -entry demo_fragment_main -g -O2 -Wno-39001 -emit-spirv-directly
   # Culling compute shader.
-  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -o ${CMAKE_CURRENT_BINARY_DIR}/culling.spv -entry culling_main -g -O2 -Wno-39001 -emit-spirv-directly
+  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/culling.spv -entry culling_main -g -O2 -Wno-39001 -emit-spirv-directly
   # Compositing triangle shader.
-  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -o ${CMAKE_CURRENT_BINARY_DIR}/composite_vertex.spv -entry composite_vertex_main -g -O2 -Wno-39001 -emit-spirv-directly
+  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/composite_vertex.spv -entry composite_vertex_main -g -O2 -Wno-39001 -emit-spirv-directly
   # Compositing fragment shader for deferred rendering.
-  COMMAND slangc ${CMAKE_SOURCE_DIR}/shaders.slang -o ${CMAKE_CURRENT_BINARY_DIR}/composite_fragment.spv -entry composite_fragment_main -g -O2 -Wno-39001 -emit-spirv-directly
+  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/composite_fragment.spv -entry composite_fragment_main -g -O2 -Wno-39001 -emit-spirv-directly
 )
 
 find_package(Vulkan REQUIRED)
