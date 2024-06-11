@@ -90,12 +90,17 @@ auto main() -> int {
 
     vku::DescriptorSetLayoutMaker dslm;
     g_descriptor_layout =
-        dslm.buffer(0, vk::DescriptorType::eStorageBuffer,
-                    vk::ShaderStageFlagBits::eAllGraphics, 1)
+        dslm.buffer(
+                // Bindless storage buffer.
+                0, vk::DescriptorType::eStorageBuffer,
+                vk::ShaderStageFlagBits::eAllGraphics, 1)
+            // Color/normal maps.
             .image(1, vk::DescriptorType::eCombinedImageSampler,
-                   vk::ShaderStageFlagBits::eFragment, 1)
+                   vk::ShaderStageFlagBits::eFragment, 2)
+            // Instance ID map.
             .image(2, vk::DescriptorType::eCombinedImageSampler,
                    vk::ShaderStageFlagBits::eFragment, 1)
+            // Depth map.
             .image(3, vk::DescriptorType::eCombinedImageSampler,
                    vk::ShaderStageFlagBits::eFragment, 1)
             .createUnique(g_device)
@@ -108,7 +113,7 @@ auto main() -> int {
 
     std::vector<vk::DescriptorPoolSize> pool_sizes;
     pool_sizes.emplace_back(vk::DescriptorType::eStorageBuffer, 1);
-    pool_sizes.emplace_back(vk::DescriptorType::eCombinedImageSampler, 3);
+    pool_sizes.emplace_back(vk::DescriptorType::eCombinedImageSampler, 4);
 
     // Create an arbitrary number of descriptors in a pool.
     // Allow the descriptors to be freed, possibly not optimal behaviour.
@@ -146,14 +151,16 @@ auto main() -> int {
         .beginImages(1, 0, vk::DescriptorType::eCombinedImageSampler)
         .image(nearest_sampler, g_color_image.imageView(),
                vk::ImageLayout::eShaderReadOnlyOptimal)
-
-        .beginImages(2, 0, vk::DescriptorType::eCombinedImageSampler)
         .image(nearest_sampler, g_normal_image.imageView(),
                vk::ImageLayout::eShaderReadOnlyOptimal)
 
-        .beginImages(3, 0, vk::DescriptorType::eCombinedImageSampler)
+        .beginImages(2, 0, vk::DescriptorType::eCombinedImageSampler)
         .image(nearest_sampler, g_id_image.imageView(),
                vk::ImageLayout::eShaderReadOnlyOptimal)
+
+        .beginImages(3, 0, vk::DescriptorType::eCombinedImageSampler)
+        .image(nearest_sampler, g_depth_image.imageView(),
+               vk::ImageLayout::eDepthReadOnlyOptimal)
 
         .update(g_device);
     assert(dsu.ok());

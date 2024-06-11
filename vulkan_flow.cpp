@@ -12,6 +12,7 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     vk::PhysicalDeviceVulkan12Features vulkan_1_2_features{};
     vulkan_1_2_features.setDrawIndirectCount(vk::True);
     vulkan_1_2_features.setBufferDeviceAddress(vk::True);
+    vulkan_1_2_features.setRuntimeDescriptorArray(vk::True);
 
     vkb::PhysicalDeviceSelector physical_device_selector(instance);
     physical_device_selector.add_required_extension("VK_KHR_dynamic_rendering")
@@ -231,6 +232,7 @@ void set_all_render_state(vk::CommandBuffer cmd) {
     cmd.setColorBlendEnableEXT(0, vk::False);
     cmd.setColorBlendEnableEXT(1, vk::False);
     cmd.setColorBlendEnableEXT(2, vk::False);
+    cmd.setColorBlendEnableEXT(3, vk::False);
 
     constexpr vk::Flags color_write_mask =
         vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
@@ -245,8 +247,13 @@ void set_all_render_state(vk::CommandBuffer cmd) {
     constexpr vk::Flags id_write_mask = vk::ColorComponentFlagBits::eR;
     cmd.setColorWriteMaskEXT(2, 1, &id_write_mask);
 
+    constexpr vk::Flags depth_write_mask = vk::ColorComponentFlagBits::eR;
+    cmd.setColorWriteMaskEXT(3, 1, &depth_write_mask);
+
+    // Bind color attachments to descriptors so they can be read after being
+    // written.
     cmd.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, g_pipeline_layout,
-                           0, g_descriptor_set, nullptr);
+                           0, g_descriptor_set, {});
 }
 
 void record_rendering(std::size_t const frame) {
@@ -298,6 +305,8 @@ void record_rendering(std::size_t const frame) {
 
     std::array attachments = {color_attachment_info, normal_attachment_info,
                               id_attachment_info};
+    // std::array<vk::RenderingAttachmentInfoKHR, 4> attachments = {
+    //     color_attachment_info, normal_attachment_info, id_attachment_info};
 
     vk::RenderingAttachmentInfoKHR depth_attachment_info;
     depth_attachment_info.setClearValue(depth_clear_color)
@@ -363,6 +372,19 @@ void record_rendering(std::size_t const frame) {
     // The hard-coded compositing triangle does not require depth-testing.
     cmd.setDepthTestEnable(vk::False);
     cmd.setDepthWriteEnable(vk::False);
+    cmd.setCullMode(vk::CullModeFlagBits::eNone);
+
+    g_depth_image.setLayout(cmd, vk::ImageLayout::eDepthReadOnlyOptimal,
+                            vk::ImageAspectFlagBits::eDepth);
+
+    depth_attachment_info
+        .setImageLayout(vk::ImageLayout::eDepthAttachmentOptimal)
+        .setImageView(g_depth_image.imageView())
+        .setLoadOp(vk::AttachmentLoadOp::eLoad)
+        .setStoreOp(vk::AttachmentStoreOp::eDontCare);
+
+    // attachments = {color_attachment_info, normal_attachment_info,
+    //                id_attachment_info, depth_attachment_info};
 
     // Transition swapchain image layout to color write.
     VkImageMemoryBarrier const render_memory_barrier{

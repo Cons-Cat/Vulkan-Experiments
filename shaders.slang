@@ -142,13 +142,13 @@ void culling_main(uint3 sv_dispatchThreadID : SV_DispatchThreadID) {
 }
 
 [vk::binding(1, 0)]
-Sampler2D<float4> color_texture;
+Sampler2D<float4> color_textures[];
 
 [vk::binding(2, 0)]
-Sampler2D<float4> normal_texture;
+Sampler2D<uint32_t> id_texture;
 
 [vk::binding(3, 0)]
-Sampler2D<uint32_t> id_texture;
+Sampler2D<float> depth_texture;
 
 // Generate a triangle that covers the screen.
 [shader("vertex")]
@@ -205,5 +205,5 @@ float4 composite_fragment_main(float2 uv : SV_Position)
         return float4(1, 1, 1, 1);
     }
 
-    return color_texture.Load(uint3(uint(uv.x), uint(uv.y), 0));
+    return color_textures[0].Load(uint3(uint(uv.x), uint(uv.y), 0));
 }
