@@ -4,7 +4,7 @@
 
 auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device;
 
-void create_swapchain();
+void create_first_swapchain();
 void create_command_pool();
 void create_command_buffers();
 void create_sync_objects();

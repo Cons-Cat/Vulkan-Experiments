@@ -45,7 +45,7 @@ auto main() -> int {
     g_device = make_device(instance, surface);
     vulk.init(g_device);
 
-    create_swapchain();
+    create_first_swapchain();
     defer {
         vkb::destroy_swapchain(g_swapchain);
     };
@@ -240,6 +240,12 @@ auto main() -> int {
         g_buffer.upload(g_device, g_physical_device.memory_properties,
                         g_command_pool, g_graphics_queue,
                         g_bindless_data.data(), g_bindless_data.capacity());
+
+        std::int16_t width;
+        std::int16_t height;
+        win.GetWinSize(width, height);
+        g_screen_width = static_cast<std::uint32_t>(width);
+        g_screen_height = static_cast<std::uint32_t>(height);
 
         record();
 

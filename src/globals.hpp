@@ -46,12 +46,15 @@ inline vk::PipelineLayout g_pipeline_layout;
 
 inline vkb::PhysicalDevice g_physical_device;
 // This is `optional` to defer initialization:
-inline std::optional<vkb::SwapchainBuilder> swapchain_builder;
+inline std::optional<vkb::SwapchainBuilder> g_swapchain_builder;
 
 inline vk::Device g_device;
 
-inline constexpr uint32_t max_frames_in_flight = 3;
-inline constexpr uint32_t game_width = 480;
-inline constexpr uint32_t game_height = 320;
+inline constexpr std::uint32_t max_frames_in_flight = 3;
+inline constexpr std::uint32_t game_width = 480;
+inline constexpr std::uint32_t game_height = 320;
+inline constinit std::uint32_t g_screen_width = game_width;
+inline constinit std::uint32_t g_screen_height = game_height;
+
 // TODO: Dynamically select a supported depth format.
 inline constexpr auto depth_format = vk::Format::eD32Sfloat;

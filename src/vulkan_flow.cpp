@@ -53,17 +53,17 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     g_present_queue = *device.get_queue(vkb::QueueType::present);
     g_present_queue_index = *device.get_queue_index(vkb::QueueType::present);
 
-    swapchain_builder = vkb::SwapchainBuilder{device};
+    g_swapchain_builder = vkb::SwapchainBuilder{device};
 
     return device.device;
 }
 
-void create_swapchain() {
-    assert(swapchain_builder);
+void create_first_swapchain() {
+    assert(g_swapchain_builder);
 
     // Initialize swapchain.
     auto maybe_swapchain =
-        swapchain_builder->set_old_swapchain(g_swapchain).build();
+        g_swapchain_builder->set_old_swapchain(g_swapchain).build();
     if (!maybe_swapchain) {
         std::cout << maybe_swapchain.error().message() << ' '
                   << maybe_swapchain.vk_result() << '\n';
@@ -267,9 +267,9 @@ void record_rendering(vk::CommandBuffer& cmd) {
         .setMinDepth(0.f)
         .setMaxDepth(1.f);
     vk::Rect2D scissor;
-    scissor.setOffset({0, 0}).setExtent(g_swapchain.extent);
+    scissor.setOffset({0, 0}).setExtent({game_width, game_height});
     vk::Rect2D render_area;
-    render_area.setOffset({0, 0}).setExtent(g_swapchain.extent);
+    render_area.setOffset({0, 0}).setExtent({game_width, game_height});
 
     cmd.setViewportWithCount(1, &viewport);
     cmd.setScissorWithCount(1, &scissor);
@@ -392,6 +392,7 @@ void record_compositing(vk::CommandBuffer& cmd, std::size_t frame) {
                              .layerCount = 1,
                              }
     };
+
     vkCmdPipelineBarrier(
         cmd,
         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,              // srcStageMask
@@ -433,6 +434,7 @@ void record_compositing(vk::CommandBuffer& cmd, std::size_t frame) {
     shader_objects.bind_vertex(cmd, 3);
     shader_objects.bind_fragment(cmd, 4);
 
+    // Draw a hard-coded triangle.
     cmd.draw(3, 1, 0, 0);
 
     cmd.endRendering();
@@ -480,7 +482,21 @@ void recreate_swapchain() {
     g_device.destroyCommandPool(g_command_pool);
     g_swapchain.destroy_image_views(g_swapchain_views);
 
-    create_swapchain();
+    auto maybe_swapchain =
+        g_swapchain_builder->set_old_swapchain(g_swapchain).build();
+    if (!maybe_swapchain) {
+        std::cout << maybe_swapchain.error().message() << '\n';
+        std::quick_exit(1);
+    }
+
+    // Free the previously allocated swapchain.
+    vkb::destroy_swapchain(g_swapchain);
+
+    // Replace it with the new swapchain.
+    g_swapchain = maybe_swapchain.value();
+    g_swapchain_images = *g_swapchain.get_images();
+    g_swapchain_views = *g_swapchain.get_image_views();
+
     create_command_pool();
     create_command_buffers();
 
