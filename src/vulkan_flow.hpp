@@ -10,5 +10,7 @@ void create_command_buffers();
 void create_sync_objects();
 void recreate_swapchain();
 void render_and_present();
-void record_rendering(std::size_t);
+void record_rendering(vk::CommandBuffer& cmd);
+void record_compositing(vk::CommandBuffer& cmd, std::size_t frame);
+void record();
 void set_all_render_state(vk::CommandBuffer cmd);

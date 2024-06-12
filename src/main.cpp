@@ -7,6 +7,7 @@
 #include "bindless.hpp"
 #include "camera.hpp"
 #include "defer.hpp"
+#include "geometry.hpp"
 #include "globals.hpp"
 #include "shader_objects.hpp"
 #include "vulkan_flow.hpp"
@@ -190,49 +191,13 @@ auto main() -> int {
         shader_objects.destroy();
     };
 
-    mesh cube;
-    cube.vertices = {
-        // Front face.
-        { 0.5,  0.5,  0.5},
-        {-0.5,  0.5,  0.5},
-        {-0.5, -0.5,  0.5},
-        { 0.5, -0.5,  0.5},
-        // Back face.
-        { 0.5,  0.5, -0.5},
-        {-0.5,  0.5, -0.5},
-        {-0.5, -0.5, -0.5},
-        { 0.5, -0.5, -0.5},
-        // Left face.
-        {-0.5,  0.5,  0.5},
-        {-0.5,  0.5, -0.5},
-        {-0.5, -0.5, -0.5},
-        {-0.5, -0.5,  0.5},
-        // Right face.
-        { 0.5,  0.5,  0.5},
-        { 0.5, -0.5,  0.5},
-        { 0.5, -0.5, -0.5},
-        { 0.5,  0.5, -0.5},
-        // Bottom face.
-        { 0.5,  0.5,  0.5},
-        {-0.5,  0.5,  0.5},
-        {-0.5,  0.5, -0.5},
-        { 0.5,  0.5, -0.5},
-        // Top face.
-        { 0.5, -0.5,  0.5},
-        {-0.5, -0.5,  0.5},
-        {-0.5, -0.5, -0.5},
-        { 0.5, -0.5, -0.5}
-    };
-
-    cube.indices = {0,  1,  2,  2,  3,  0,  4,  7,  6,  6,  5,  4,
-                    8,  9,  10, 10, 11, 8,  12, 13, 14, 14, 15, 12,
-                    16, 19, 18, 18, 17, 16, 20, 21, 22, 22, 23, 20};
-
     glm::mat4x4 proj = projection_matrix;
     proj[1][1] *= -1.f;
     g_bindless_data.set_proj_matrix(proj);
 
     g_camera.position.z = 2.f;
+
+    static float rotation = 0.f;
 
     // Game loop.
     while (win.ProcessEvents()) {
@@ -244,27 +209,30 @@ auto main() -> int {
         g_bindless_data.set_view_matrix(view);
 
         // Add a cube to be rendered.
-        g_bindless_data.push_mesh(cube);
+        g_bindless_data.push_mesh(g_cube_mesh);
         g_bindless_data.push_indices();
 
+        rotation += 0.05f;
+
         glm::mat4x4 a = glm::identity<glm::mat4x4>();
-        a = glm::rotate(a, 45.f, {1, 1, 1});
+        a = glm::translate(a, {-0.5f, -0.5f, -0.5f});
+        a = glm::rotate(a, -rotation, {1, 1, 1});
         a = glm::translate(a, {-1, 0, 0});
 
         glm::mat4x4 b = glm::identity<glm::mat4x4>();
-        b = glm::rotate(b, 25.f, {1, 0, 1});
+        b = glm::rotate(b, rotation, {1, 1, 1});
         b = glm::translate(b, {1, 0.15f, 0.5f});
 
         struct instance cube_inst1{
             .transform = a,
             .index_offset = 0u,
-            .index_count = static_cast<index_type>(cube.indices.size()),
+            .index_count = static_cast<index_type>(g_cube_mesh.indices.size()),
         };
 
         struct instance cube_inst2{
             .transform = b,
             .index_offset = 0u,
-            .index_count = static_cast<index_type>(cube.indices.size()),
+            .index_count = static_cast<index_type>(g_cube_mesh.indices.size()),
         };
         g_bindless_data.push_instances({cube_inst1, cube_inst2});
         g_bindless_data.push_properties();
@@ -273,9 +241,7 @@ auto main() -> int {
                         g_command_pool, g_graphics_queue,
                         g_bindless_data.data(), g_bindless_data.capacity());
 
-        for (std::size_t i = 0; i < g_command_buffers.size(); ++i) {
-            record_rendering(i);
-        }
+        record();
 
         render_and_present();
     }

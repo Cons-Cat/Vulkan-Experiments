@@ -254,12 +254,7 @@ void set_all_render_state(vk::CommandBuffer cmd) {
                            0, g_descriptor_set, {});
 }
 
-void record_rendering(std::size_t const frame) {
-    vk::CommandBuffer& cmd = g_command_buffers[frame];
-    vk::CommandBufferBeginInfo begin_info;
-
-    cmd.begin(begin_info);
-
+void record_rendering(vk::CommandBuffer& cmd) {
     vk::ClearColorValue clear_color = {1.f, 0.f, 1.f, 0.f};
     vk::ClearColorValue black_clear_color = {0, 0, 0, 1};
     vk::ClearColorValue depth_clear_color = {1.f, 1.f, 1.f, 1.f};
@@ -307,8 +302,9 @@ void record_rendering(std::size_t const frame) {
         .setStoreOp(vk::AttachmentStoreOp::eStore)
         .setResolveMode(vk::ResolveModeFlagBits::eNone);
 
-    std::array attachments = {color_attachment_info, normal_attachment_info,
-                              xyz_attachment_info, id_attachment_info};
+    std::array const attachments = {color_attachment_info,
+                                    normal_attachment_info, xyz_attachment_info,
+                                    id_attachment_info};
 
     vk::RenderingAttachmentInfoKHR depth_attachment_info;
     depth_attachment_info.setClearValue(depth_clear_color)
@@ -366,7 +362,9 @@ void record_rendering(std::size_t const frame) {
                                  g_buffer.buffer(), 16, 2, 32);
 
     cmd.endRendering();
+}
 
+void record_compositing(vk::CommandBuffer& cmd, std::size_t frame) {
     // Post processing.
     g_color_image.setLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
     g_normal_image.setLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
@@ -410,6 +408,23 @@ void record_rendering(std::size_t const frame) {
         .setLoadOp(vk::AttachmentLoadOp::eDontCare)
         .setStoreOp(vk::AttachmentStoreOp::eStore);
 
+    vk::Rect2D render_area;
+    render_area.setOffset({0, 0}).setExtent(g_swapchain.extent);
+
+    vk::RenderingAttachmentInfoKHR color_attachment_info;
+    color_attachment_info
+        .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
+        .setImageView(g_color_image.imageView())
+        .setLoadOp(vk::AttachmentLoadOp::eClear)
+        .setStoreOp(vk::AttachmentStoreOp::eStore);
+
+    std::array const attachments = {color_attachment_info};
+
+    vk::RenderingInfo rendering_info;
+    rendering_info.setRenderArea(render_area)
+        .setLayerCount(1)
+        .setColorAttachments(attachments);
+
     rendering_info.setColorAttachments(swapchain_attachment_info)
         .setPDepthAttachment(nullptr);
 
@@ -445,8 +460,19 @@ void record_rendering(std::size_t const frame) {
         1,                       // imageMemoryBarrierCount
         &present_memory_barrier  // pImageMemoryBarriers
     );
+}
 
-    cmd.end();
+void record() {
+    for (std::size_t i = 0; i < g_command_buffers.size(); ++i) {
+        vk::CommandBuffer& cmd = g_command_buffers[i];
+        vk::CommandBufferBeginInfo begin_info;
+        cmd.begin(begin_info);
+
+        record_rendering(cmd);
+        record_compositing(cmd, i);
+
+        cmd.end();
+    }
 }
 
 void recreate_swapchain() {
@@ -458,7 +484,5 @@ void recreate_swapchain() {
     create_command_pool();
     create_command_buffers();
 
-    for (uint32_t i = 0; i < g_command_buffers.size(); ++i) {
-        record_rendering(i);
-    }
+    record();
 }
