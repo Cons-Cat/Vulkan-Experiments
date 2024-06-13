@@ -165,11 +165,11 @@ auto main() -> int {
         .image(nearest_sampler, g_xyz_image.imageView(),
                vk::ImageLayout::eShaderReadOnlyOptimal)
 
-        .beginImages(2, 0, vk::DescriptorType::eCombinedImageSampler)
+        // Instance ID map.
         .image(nearest_sampler, g_id_image.imageView(),
                vk::ImageLayout::eShaderReadOnlyOptimal)
 
-        .beginImages(3, 0, vk::DescriptorType::eCombinedImageSampler)
+        // Rasterization depth map.
         .image(nearest_sampler, g_depth_image.imageView(),
                vk::ImageLayout::eDepthReadOnlyOptimal)
 

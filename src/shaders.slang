@@ -205,11 +205,11 @@ void culling_main(uint3 sv_dispatchThreadID : SV_DispatchThreadID) {
 [vk::binding(1, 0)]
 Sampler2D<float4> color_textures[];
 
-[vk::binding(2, 0)]
-Sampler2D<uint> id_texture;
+[vk::binding(1, 0)]
+Sampler2D<uint> id_texture[4];
 
-[vk::binding(3, 0)]
-Sampler2D<float> depth_texture;
+[vk::binding(1, 0)]
+Sampler2D<float> depth_texture[5];
 
 // Generate a triangle that covers the screen.
 [shader("vertex")]
@@ -221,8 +221,8 @@ float4 composite_vertex_main(uint vertex : SV_VertexID)
 }
 
 uint test_adjacency(uint3 coord, uint self, float depth) {
-    if (depth_texture.Load(coord) > depth) {
-        uint other = id_texture.Load(coord);
+    if (depth_texture[4].Load(coord) > depth) {
+        uint other = id_texture[3].Load(coord);
         return self != other;
     }
     return 0;
@@ -233,10 +233,10 @@ float4 composite_fragment_main(float2 uv : SV_Position) : SV_Target0 {
     const uint x = uint(uv.x);    
     const uint y = uint(uv.y);
 
-    uint self = id_texture.Load(uint3(x, y, 0));
+    uint self = id_texture[3].Load(uint3(x, y, 0));
 
     uint adjacencies = 0;
-    float depth = depth_texture.Load(uint3(x, y, 0));
+    float depth = depth_texture[4].Load(uint3(x, y, 0));
 
     // Left adjacency.
     if (x > 0) {
