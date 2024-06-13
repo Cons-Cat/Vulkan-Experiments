@@ -5,7 +5,7 @@
 #include <vku/vku.hpp>
 #pragma GCC diagnostic pop
 
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan_handles.hpp>
 
 #include <VkBootstrap.h>
 #include <cstdint>
@@ -58,3 +58,6 @@ inline constinit std::uint32_t g_screen_height = game_height;
 
 // TODO: Dynamically select a supported depth format.
 inline constexpr auto depth_format = vk::Format::eD32Sfloat;
+
+inline vku::GenericBuffer g_buffer;
+inline vku::GenericBuffer g_instance_properties;

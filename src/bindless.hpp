@@ -1,17 +1,15 @@
 #pragma once
 
-// Disable these warnings for Vookoo.
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wconversion"
-#include <vku/vku.hpp>
-#pragma GCC diagnostic pop
-
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
 #include <glm/mat4x4.hpp>
 
 #include <cassert>
+#include <span>
 #include <vector>
 
 #include "defer.hpp"
+#include "glm/fwd.hpp"
 
 struct alignas(16) vertex {
     constexpr vertex() = default;
@@ -34,9 +32,10 @@ struct mesh {
     std::vector<index_type> indices;
 };
 
-struct instance {
-    glm::mat4x4 transform;
-    index_type index_offset;
+struct mesh_instance {
+    alignas(16) glm::vec3 position;
+    alignas(16) glm::fquat rotation;
+    signed int index_offset;
     index_type index_count;
 };
 
@@ -128,21 +127,21 @@ class buffer_storage {
         return get_at<member_type>(member_stride * 3z);
     }
 
-    void set_instance_count(member_type count) {
+    void set_instance_commands_count(member_type count) {
         set_at(count, member_stride * 4z);
     }
 
     [[nodiscard]]
-    auto get_instance_count() const -> member_type const& {
+    auto get_instance_commands_count() const -> member_type const& {
         return get_at<member_type>(member_stride * 4z);
     }
 
-    void set_instance_offset(member_type offset) {
+    void set_instance_commands_offset(member_type offset) {
         set_at(offset, member_stride * 5z);
     }
 
     [[nodiscard]]
-    auto get_instance_offset() const -> member_type const& {
+    auto get_instance_commands_offset() const -> member_type const& {
         return get_at<member_type>(member_stride * 5z);
     }
 
@@ -178,12 +177,14 @@ class buffer_storage {
 
     void push_indices();
 
-    void push_instances(std::vector<instance> const& instance);
+    void push_instances_of(std::size_t mesh_index,
+                           std::span<mesh_instance const> instance);
 
     void push_properties();
 
-    struct alignas(16) property {
-        glm::mat4x4 transform;
+    struct property {
+        alignas(16) glm::vec3 position;
+        alignas(16) glm::fquat rotation;
         std::uint32_t id;
     };
 
@@ -192,18 +193,23 @@ class buffer_storage {
         set_vertex_count(get_vertex_count() + count);
     }
 
-    void increment_instance_count() {
-        set_instance_count(get_instance_count() + 1);
+    void increment_instance_command_count() {
+        set_instance_commands_count(get_instance_commands_count() + 1);
     }
 
     std::vector<std::byte> m_data;
     std::vector<index_type> m_indices;
 
     std::vector<property> m_instance_properties;
-};
+    unsigned m_next_instance_id = 0;
 
-inline vku::GenericBuffer g_buffer;
-inline vku::GenericBuffer g_instance_properties;
+    struct mesh_count {
+        int vertex_offset;
+        int index_offset;
+    };
+
+    std::vector<mesh_count> m_counts;
+};
 
 // Bindless storage buffer.
 inline buffer_storage g_bindless_data;

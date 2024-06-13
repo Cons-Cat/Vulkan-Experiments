@@ -23,6 +23,12 @@ void my_window::OnKeyEvent(eAction action, eKeycode keycode) {
             case KEY_Right:
                 g_camera.position.x += speed;
                 break;
+            case KEY_PageUp:
+                g_camera.position.y += speed;
+                break;
+            case KEY_PageDown:
+                g_camera.position.y -= speed;
+                break;
             case KEY_S:
                 g_camera.yaw -= speed / 4;
                 break;

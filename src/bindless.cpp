@@ -1,14 +1,15 @@
 #include "bindless.hpp"
 
-static unsigned next_instance_id = 0;
+#include <vulkan/vulkan.hpp>
 
 void buffer_storage::reset() {
-    next_instance_id = 0;
+    m_next_instance_id = 0;
 
     // `m_data`'s size member must be reset, but this does not reallocate.
     m_data.resize(vertices_offset);
     m_indices.clear();
     m_instance_properties.clear();
+    m_counts.clear();
 
     // Zero out the prologue data, which is safe and well-defined because
     // `member_type` and `std::byte` are trivial integers.
@@ -17,6 +18,13 @@ void buffer_storage::reset() {
 }
 
 void buffer_storage::push_mesh(mesh const& mesh) {
+    // Remember the offsets for this mesh.
+    m_counts.emplace_back(
+        // Vertex offset:
+        get_vertex_count(),
+        // Index offset:
+        m_indices.size());
+
     // This assumes the vector pointer is properly aligned, which is ensured
     // by `buffer_storage`'s constructor.
     std::byte* p_destination = m_data.data() + m_data.size();
@@ -41,7 +49,7 @@ void buffer_storage::push_mesh(mesh const& mesh) {
 
 void buffer_storage::push_indices() {
     // This assumes that no instances have been pushed yet.
-    assert(get_instance_count() == 0);
+    assert(get_instance_commands_count() == 0);
 
     set_index_count(static_cast<member_type>(m_indices.size()));
     set_index_offset(static_cast<member_type>(m_data.size()));
@@ -56,36 +64,59 @@ void buffer_storage::push_indices() {
                 m_indices.size() * sizeof(index_type));
 
     // Place instance immediately after indices.
-    set_instance_offset(static_cast<member_type>(m_data.size()));
+    set_instance_commands_offset(static_cast<member_type>(m_data.size()));
 }
 
-void buffer_storage::push_instances(std::vector<instance> const& instances) {
-    increment_instance_count();
+void buffer_storage::push_instances_of(
+    std::size_t mesh_index, std::span<mesh_instance const> const instances) {
+    increment_instance_command_count();
     std::byte* p_destination = m_data.data() + m_data.size();
 
-    vk::DrawIndexedIndirectCommand command;
-    command.setFirstIndex(instances[0].index_offset)
-        .setFirstInstance(0)
-        .setIndexCount(instances[0].index_count)
+    unsigned instance_index_count = instances.front().index_count;
+    int instance_index_offset = instances.front().index_offset;
+
+    // All indices must be the same across these instances, because they are
+    // pushed as a single command.
+    for (auto&& i : instances) {
+        assert(i.index_count == instance_index_count);
+        assert(i.index_offset == instance_index_offset);
+    }
+
+    vk::DrawIndexedIndirectCommand command{};
+    command
+        // Instances:
+        .setFirstInstance(m_next_instance_id)
         .setInstanceCount(static_cast<unsigned>(instances.size()))
-        .setVertexOffset(0);
+        // Vertices:
+        .setVertexOffset(m_counts[mesh_index].vertex_offset)
+        // Indices:
+        .setFirstIndex(static_cast<unsigned>(m_counts[mesh_index].index_offset +
+                                             instance_index_offset))
+        .setIndexCount(instance_index_count);
 
     // Reserve storage in `m_data` for these instances.
-    m_data.resize(m_data.size() + 32);
-    __builtin_memcpy_inline(p_destination, &command, 32);
+    m_data.resize(m_data.size() + sizeof(command));
+    std::memcpy(p_destination, &command, sizeof(command));
 
     // Copy the instance's properties into `m_instance_properties` to be
-    // concatenated onto `m_data` in the future with `.push_indices()`.
+    // concatenated onto `m_data` in the future with `.push_properties()`.
     for (auto&& i : instances) {
-        ++next_instance_id;
-        m_instance_properties.push_back(
-            {.transform = i.transform, .id = next_instance_id});
+        // Give every instance of anything a unique ID for now.
+        ++m_next_instance_id;
+        m_instance_properties.emplace_back(i.position, i.rotation,
+                                           m_next_instance_id);
     }
 }
 
 void buffer_storage::push_properties() {
     std::byte* p_destination = m_data.data() + m_data.size();
-    assert(is_aligned(p_destination, alignof(property)));
+
+    // TODO: Align this without looping.
+    // This must be aligned, because it stores matrices.
+    while (!is_aligned(p_destination, alignof(property))) {
+        m_data.resize(m_data.size() + 4);
+        p_destination += 4;
+    }
 
     set_properties_offset(static_cast<member_type>(m_data.size()));
 
@@ -93,6 +124,7 @@ void buffer_storage::push_properties() {
     m_data.resize(m_data.size() +
                   (m_instance_properties.size() * sizeof(property)));
 
+    // Bit-copy the properties into `m_data`.
     std::memcpy(p_destination, m_instance_properties.data(),
                 m_instance_properties.size() * sizeof(property));
 }

@@ -27,7 +27,8 @@ struct buffer_storage {
     }
 
     struct property {
-        float4x4 transform;
+        float3 position;
+        float3 rotation;
         uint id;
     };
 
@@ -105,6 +106,20 @@ struct buffer_storage {
 
 buffer_storage g_bindless;
 
+struct vs_in {
+    [vk::location(0)]
+    float4 model_pos : POSITION0;
+    
+    [vk::location(1)]
+    float3 instance_pos : POSITION1;
+    
+    [vk::location(2)]
+    float4 instance_rot;
+    
+    [vk::location(3)]
+    uint id;
+};
+
 struct vs_out {
     float4 position : SV_Position;
     float3 xyz;
@@ -112,29 +127,50 @@ struct vs_out {
     uint id;
 }
 
+// Quaternion multiplication
+// http://mathworld.wolfram.com/Quaternion.html
+float4 qmul(float4 q1, float4 q2)
+{
+    return float4(
+        q2.xyz * q1.w + q1.xyz * q2.w + cross(q1.xyz, q2.xyz),
+        q1.w * q2.w - dot(q1.xyz, q2.xyz)
+    );
+}
+
+// Vector rotation with a quaternion
+// http://mathworld.wolfram.com/Quaternion.html
+float3 rotate_vector(float3 v, float4 r)
+{
+    float4 r_c = r * float4(-1, -1, -1, 1);
+    return qmul(r, qmul(float4(v, 0), r_c)).xyz;
+}
+
 [shader("vertex")]
-vs_out demo_vertex_main(in float4 vert : POSITION,
+vs_out demo_vertex_main(in vs_in vert,
                         in uint invocation_index : SV_VertexID,
                         in uint instance_index : SV_InstanceID) {
-    float3 xyz = vert.xyz;
-
-    // Bring vertex into world space:
-    vert = mul(g_bindless.get_property(instance_index).transform, vert);
-
     // Bring vertex into projection space:
     float4x4 view = g_bindless.get_view_matrix();
     float4x4 proj = g_bindless.get_proj_matrix();
     float4x4 view_proj = mul(proj, view);
 
-    vert = mul(view_proj, vert);
+    float4 out_pos = vert.model_pos;
+    // If no rotation is provided, the quaternion is 0.
+    if (vert.instance_rot.w != 0) {
+        out_pos.xyz = rotate_vector(out_pos.xyz, vert.instance_rot);
+    }
+    out_pos.xyz += vert.instance_pos;
+    
+    float3 xyz = out_pos.xyz;
+    out_pos = mul(view_proj, out_pos);
 
     float3 colors[3] = {
         float3 (1.0, 0.0, 0.0), float3 (0.0, 1.0, 0.0), float3 (0.0, 0.0, 1.0),
     };
 
-    float3 color = colors[invocation_index % 3];
+    const float3 color = colors[invocation_index % 3];
 
-    return {vert, xyz, color, g_bindless.get_property(instance_index).id};
+    return {out_pos, xyz, color, vert.id};
 }
 
 struct frag_out {

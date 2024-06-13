@@ -189,7 +189,7 @@ void render_and_present() {
 
 void set_all_render_state(vk::CommandBuffer cmd) {
     cmd.setLineWidth(1.0);
-    cmd.setCullMode(vk::CullModeFlagBits::eBack);
+    cmd.setCullMode(vk::CullModeFlagBits::eNone);
     cmd.setPolygonModeEXT(vk::PolygonMode::eFill);
     vk::ColorBlendEquationEXT color_blend_equations[3]{};
     cmd.setColorBlendEquationEXT(3, color_blend_equations);
@@ -203,16 +203,46 @@ void set_all_render_state(vk::CommandBuffer cmd) {
     cmd.setPrimitiveTopology(vk::PrimitiveTopology::eTriangleList);
     cmd.setPrimitiveRestartEnable(vk::False);
 
-    vk::VertexInputBindingDescription2EXT vertex_input_binding{};
-    vertex_input_binding.setBinding(0);
-    vertex_input_binding.setInputRate(vk::VertexInputRate::eVertex);
-    vertex_input_binding.setStride(sizeof(vertex));
-    vertex_input_binding.setDivisor(1);
+    // Per-vertex bindings and attributes:
+    vk::VertexInputBindingDescription2EXT per_vertex_binding{};
+    per_vertex_binding.setBinding(0)
+        .setInputRate(vk::VertexInputRate::eVertex)
+        .setStride(sizeof(vertex))
+        .setDivisor(1);
 
-    vk::VertexInputAttributeDescription2EXT vertex_attributes{};
-    vertex_attributes.setFormat(vk::Format::eR32G32B32A32Sfloat);
+    vk::VertexInputAttributeDescription2EXT per_vertex_attribute{};
+    per_vertex_attribute.setBinding(0).setLocation(0).setOffset(0).setFormat(
+        vk::Format::eR32G32B32A32Sfloat);
 
-    cmd.setVertexInputEXT(1, &vertex_input_binding, 1, &vertex_attributes);
+    // Per-instance bindings and attributes:
+    vk::VertexInputBindingDescription2EXT per_instance_binding{};
+    per_instance_binding.setBinding(1)
+        .setInputRate(vk::VertexInputRate::eInstance)
+        .setStride(sizeof(buffer_storage::property))
+        .setDivisor(1);
+
+    vk::VertexInputAttributeDescription2EXT per_instance_position_attribute{};
+    per_instance_position_attribute.setBinding(1)
+        .setLocation(1)
+        .setOffset(offsetof(buffer_storage::property, position))
+        .setFormat(vk::Format::eR32G32B32Sfloat);  // `glm::vec3`
+
+    vk::VertexInputAttributeDescription2EXT per_instance_rotation_attribute{};
+    per_instance_rotation_attribute.setBinding(1)
+        .setLocation(2)
+        .setOffset(offsetof(buffer_storage::property, rotation))
+        .setFormat(vk::Format::eR32G32B32A32Sfloat);  // `glm::fquat`
+
+    vk::VertexInputAttributeDescription2EXT per_instance_id_attribute{};
+    per_instance_id_attribute.setBinding(1)
+        .setLocation(3)
+        .setOffset(offsetof(buffer_storage::property, id))
+        .setFormat(vk::Format::eR32Uint);  // `unsigned`
+
+    cmd.setVertexInputEXT(
+        {per_vertex_binding, per_instance_binding},
+        {per_vertex_attribute, per_instance_position_attribute,
+         per_instance_rotation_attribute, per_instance_id_attribute});
 
     cmd.setDepthClampEnableEXT(vk::False);
     cmd.setDepthClipEnableEXT(vk::False);
@@ -350,16 +380,18 @@ void record_rendering(vk::CommandBuffer& cmd) {
     //     g_bindless_data.get_index_offset() +
     //     g_bindless_data.get_index_count(), vk::IndexType::eUint32);
 
-    cmd.bindVertexBuffers(0, g_buffer.buffer(),
-                          {g_bindless_data.vertices_offset});
+    cmd.bindVertexBuffers(0, {g_buffer.buffer(), g_buffer.buffer()},
+                          {g_bindless_data.vertices_offset,
+                           g_bindless_data.get_properties_offset()});
+
     cmd.bindIndexBuffer(g_buffer.buffer(), g_bindless_data.get_index_offset(),
                         vk::IndexType::eUint32);
 
-    // 16 is the byte offset produced by `.get_instance_count()`.
-
-    cmd.drawIndexedIndirectCount(g_buffer.buffer(),
-                                 g_bindless_data.get_instance_offset(),
-                                 g_buffer.buffer(), 16, 2, 32);
+    // 16 is the byte offset of the instance count into the bindless buffer.
+    cmd.drawIndexedIndirectCount(
+        g_buffer.buffer(), g_bindless_data.get_instance_commands_offset(),
+        g_buffer.buffer(), 16, g_bindless_data.get_instance_commands_count(),
+        sizeof(vk::DrawIndexedIndirectCommand));
 
     cmd.endRendering();
 }

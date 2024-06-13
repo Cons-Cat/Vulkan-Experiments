@@ -208,8 +208,9 @@ auto main() -> int {
         glm::mat4x4 const view = g_camera.make_view_matrix();
         g_bindless_data.set_view_matrix(view);
 
-        // Add a cube to be rendered.
+        // Add cubes and planes to be rendered.
         g_bindless_data.push_mesh(g_cube_mesh);
+        g_bindless_data.push_mesh(g_plane_mesh);
         g_bindless_data.push_indices();
 
         rotation += 0.05f;
@@ -217,24 +218,31 @@ auto main() -> int {
         glm::mat4x4 a = glm::identity<glm::mat4x4>();
         a = glm::translate(a, {-0.5f, -0.5f, -0.5f});
         a = glm::rotate(a, -rotation, {1, 1, 1});
-        a = glm::translate(a, {-1, 0, 0});
 
         glm::mat4x4 b = glm::identity<glm::mat4x4>();
         b = glm::rotate(b, rotation, {1, 1, 1});
-        b = glm::translate(b, {1, 0.15f, 0.5f});
 
-        struct instance cube_inst1{
-            .transform = a,
-            .index_offset = 0u,
+        mesh_instance const cube_inst1 = {
+            .position = {-1, 0, 0},
+            .rotation = glm::toQuat(a),
             .index_count = static_cast<index_type>(g_cube_mesh.indices.size()),
         };
 
-        struct instance cube_inst2{
-            .transform = b,
-            .index_offset = 0u,
+        mesh_instance const cube_inst2 = {
+            .position = {1, 0.15f, 0.5f},
+            .rotation = glm::toQuat(b),
             .index_count = static_cast<index_type>(g_cube_mesh.indices.size()),
         };
-        g_bindless_data.push_instances({cube_inst1, cube_inst2});
+
+        mesh_instance const plane_inst = {
+            .position = {0, -0.75f, 0},
+            .index_count = static_cast<index_type>(g_plane_mesh.indices.size()),
+        };
+
+        g_bindless_data.push_instances_of(0, {cube_inst1, cube_inst2});
+        g_bindless_data.push_instances_of(1, {plane_inst});
+
+        // Finalize data to be transferred.
         g_bindless_data.push_properties();
 
         g_buffer.upload(g_device, g_physical_device.memory_properties,

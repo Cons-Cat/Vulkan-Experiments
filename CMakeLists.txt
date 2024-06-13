@@ -51,15 +51,15 @@ set(shaders ${CMAKE_SOURCE_DIR}/src/shaders.slang)
 
 add_custom_target(shaders
   # Vertex shader.
-  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/vertex.spv -profile sm_6_6 -entry demo_vertex_main -g -O2 -Wno-39001 -emit-spirv-directly
+  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/vertex.spv -profile sm_6_6 -entry demo_vertex_main -O2 -Wno-39001 -emit-spirv-directly
   # Fragment shader.
-  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/fragment.spv -entry demo_fragment_main -g -O2 -Wno-39001 -emit-spirv-directly
+  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/fragment.spv -entry demo_fragment_main -O2 -Wno-39001 -emit-spirv-directly
   # Culling compute shader.
-  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/culling.spv -entry culling_main -g -O2 -Wno-39001 -emit-spirv-directly
+  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/culling.spv -entry culling_main -O2 -Wno-39001 -emit-spirv-directly
   # Compositing triangle shader.
-  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/composite_vertex.spv -entry composite_vertex_main -g -O2 -Wno-39001 -emit-spirv-directly
+  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/composite_vertex.spv -entry composite_vertex_main -O2 -Wno-39001 -emit-spirv-directly
   # Compositing fragment shader for deferred rendering.
-  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/composite_fragment.spv -entry composite_fragment_main -g -O2 -Wno-39001 -emit-spirv-directly
+  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/composite_fragment.spv -entry composite_fragment_main -O2 -Wno-39001 -emit-spirv-directly
 )
 
 find_package(Vulkan REQUIRED)
