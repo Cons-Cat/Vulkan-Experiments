@@ -181,7 +181,7 @@ struct frag_out {
     float4 color : SV_Target0;
     float4 normal : SV_Target1;
     float4 xyz : SV_Target2;
-    uint32_t id : SV_Target3;
+    uint id : SV_Target3;
 };
 
 [shader("fragment")]
@@ -206,66 +206,59 @@ void culling_main(uint3 sv_dispatchThreadID : SV_DispatchThreadID) {
 Sampler2D<float4> color_textures[];
 
 [vk::binding(2, 0)]
-Sampler2D<uint32_t> id_texture;
+Sampler2D<uint> id_texture;
 
 [vk::binding(3, 0)]
 Sampler2D<float> depth_texture;
 
 // Generate a triangle that covers the screen.
 [shader("vertex")]
-float4 composite_vertex_main(uint32_t vertex : SV_VertexID)
+float4 composite_vertex_main(uint vertex : SV_VertexID)
 : SV_Position {
     float2 uv = float2((vertex << 1) & 2, vertex & 2);
     float4 color = float4(uv * float2(2, -2) + float2(-1, 1), 0, 1);
     return color;
 }
 
+uint test_adjacency(uint3 coord, uint self, float depth) {
+    if (depth_texture.Load(coord) > depth) {
+        uint other = id_texture.Load(coord);
+        return self != other;
+    }
+    return 0;
+}
+
 [shader("fragment")]
 float4 composite_fragment_main(float2 uv : SV_Position) : SV_Target0 {
-    // return float4
-    //     (float3(
-    //         depth_texture.Load(uint3(uint(uv.x), uint(uv.y), 0))
-    //     ), 1);
-    
-    uint adjacencies = 0;
-    
-    const uint32_t x = uint(uv.x);    
-    const uint32_t y = uint(uv.y);
+    const uint x = uint(uv.x);    
+    const uint y = uint(uv.y);
 
-    uint32_t self = id_texture.Load(uint3(x, y, 0));
+    uint self = id_texture.Load(uint3(x, y, 0));
+
+    uint adjacencies = 0;
+    float depth = depth_texture.Load(uint3(x, y, 0));
 
     // Left adjacency.
     if (x > 0) {
-       uint32_t other = id_texture.Load(uint3(x - 1, y, 0));
-       if (self != other) {
-           adjacencies += 1;
-       }
+        adjacencies += test_adjacency({x - 1, y, 0}, self, depth);
     }
 
     // Right adjacency.
     if (x < 480) {
-        uint32_t other = id_texture.Load(uint3(x + 1, y, 0));
-        if (self != other) {
-            adjacencies += 1;
-        }
+        adjacencies += test_adjacency({x + 1, y, 0}, self, depth);
     }
     
     // Top adjacency.
     if (y > 0) {
-        uint32_t other = id_texture.Load(uint3(x, y - 1, 0));
-        if (self != other) {
-            adjacencies += 1;
-        }
+        adjacencies += test_adjacency({x, y - 1, 0}, self, depth);
     }
     
-    // Right adjacency.
+    // Bottom adjacency.
     if (y < 320) {
-        uint32_t other = id_texture.Load(uint3(x, y + 1, 0));
-        if (self != other) {
-            adjacencies += 1;
-        }
+        adjacencies += test_adjacency({x, y + 1, 0}, self, depth);
     }
     
+    // Draw a solid white outline.
     if (adjacencies > 0) {
         return float4(1, 1, 1, 1);
     }
