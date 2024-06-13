@@ -9,6 +9,7 @@
 #include "defer.hpp"
 #include "geometry.hpp"
 #include "globals.hpp"
+#include "light.hpp"
 #include "shader_objects.hpp"
 #include "vulkan_flow.hpp"
 #include "window.hpp"
@@ -235,8 +236,10 @@ auto main() -> int {
         };
 
         mesh_instance const plane_inst = {
-            .position = { 0, -0.75f,  0},
-            .scaling = {10,     10, 10},
+            .position = {0.f, -0.75f, 0.f},
+            // clang-format off
+            .scaling = {10.f, 10.f, 10.f},
+            // clang-format on
             .index_count = static_cast<index_type>(g_plane_mesh.indices.size()),
         };
 

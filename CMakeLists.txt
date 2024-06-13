@@ -3,13 +3,14 @@ cmake_minimum_required(VERSION 3.27)
 project(game LANGUAGES CXX)
 
 add_executable(game)
-set_property(TARGET game PROPERTY CXX_STANDARD 26)
+set_target_properties(game PROPERTIES CXX_STANDARD 26)
 target_sources(game PRIVATE
   src/main.cpp
   src/camera.cpp
   src/window.cpp
   src/bindless.cpp
   src/vulkan_flow.cpp
+  src/light.cpp
 )
 
 target_include_directories(game PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/)
