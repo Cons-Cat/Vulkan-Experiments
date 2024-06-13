@@ -235,7 +235,8 @@ auto main() -> int {
         };
 
         mesh_instance const plane_inst = {
-            .position = {0, -0.75f, 0},
+            .position = { 0, -0.75f,  0},
+            .scaling = {10,     10, 10},
             .index_count = static_cast<index_type>(g_plane_mesh.indices.size()),
         };
 

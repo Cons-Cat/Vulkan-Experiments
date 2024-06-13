@@ -35,6 +35,7 @@ struct mesh {
 struct mesh_instance {
     alignas(16) glm::vec3 position;
     alignas(16) glm::fquat rotation;
+    alignas(16) glm::vec3 scaling = glm::vec3(1);
     signed int index_offset;
     index_type index_count;
 };
@@ -185,6 +186,7 @@ class buffer_storage {
     struct property {
         alignas(16) glm::vec3 position;
         alignas(16) glm::fquat rotation;
+        alignas(16) glm::vec3 scaling;
         std::uint32_t id;
     };
 

@@ -115,8 +115,11 @@ struct vs_in {
     
     [vk::location(2)]
     float4 instance_rot;
-    
+
     [vk::location(3)]
+    float3 instance_scale : POSITION1;
+    
+    [vk::location(4)]
     uint id;
 };
 
@@ -155,6 +158,7 @@ vs_out demo_vertex_main(in vs_in vert,
     float4x4 view_proj = mul(proj, view);
 
     float4 out_pos = vert.model_pos;
+    out_pos.xyz *= vert.instance_scale;
     // If no rotation is provided, the quaternion is 0.
     if (vert.instance_rot.w != 0) {
         out_pos.xyz = rotate_vector(out_pos.xyz, vert.instance_rot);

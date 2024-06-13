@@ -103,7 +103,7 @@ void buffer_storage::push_instances_of(
     for (auto&& i : instances) {
         // Give every instance of anything a unique ID for now.
         ++m_next_instance_id;
-        m_instance_properties.emplace_back(i.position, i.rotation,
+        m_instance_properties.emplace_back(i.position, i.rotation, i.scaling,
                                            m_next_instance_id);
     }
 }
