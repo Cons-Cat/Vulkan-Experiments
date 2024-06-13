@@ -8,6 +8,7 @@ void create_first_swapchain();
 void create_command_pool();
 void create_command_buffers();
 void create_sync_objects();
+void update_descriptors();
 void recreate_swapchain();
 void render_and_present();
 void record_rendering(vk::CommandBuffer& cmd);

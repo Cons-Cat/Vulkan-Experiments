@@ -32,6 +32,8 @@ inline vku::ColorAttachmentImage g_xyz_image;
 inline vku::ColorAttachmentImage g_id_image;
 inline vku::DepthStencilImage g_depth_image;
 
+inline vk::Sampler g_nearest_neighbor_sampler;
+
 inline vk::CommandPool g_command_pool;
 inline std::vector<vk::CommandBuffer> g_command_buffers;
 

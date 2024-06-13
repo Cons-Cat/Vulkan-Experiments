@@ -118,6 +118,38 @@ void create_sync_objects() {
     }
 }
 
+void update_descriptors() {
+    vku::DescriptorSetUpdater dsu;
+    dsu.beginDescriptorSet(g_descriptor_set)
+        .beginBuffers(0, 0, vk::DescriptorType::eStorageBuffer)
+        .buffer(g_buffer.buffer(), 0, vk::WholeSize)
+
+        .beginImages(1, 0, vk::DescriptorType::eCombinedImageSampler)
+        // Color map.
+        .image(g_nearest_neighbor_sampler, g_color_image.imageView(),
+               vk::ImageLayout::eShaderReadOnlyOptimal)
+        // Normal map.
+        .image(g_nearest_neighbor_sampler, g_normal_image.imageView(),
+               vk::ImageLayout::eShaderReadOnlyOptimal)
+        // XYZ map.
+        .image(g_nearest_neighbor_sampler, g_xyz_image.imageView(),
+               vk::ImageLayout::eShaderReadOnlyOptimal)
+
+        // Instance ID map.
+        .image(g_nearest_neighbor_sampler, g_id_image.imageView(),
+               vk::ImageLayout::eShaderReadOnlyOptimal)
+
+        // Rasterization depth map.
+        .image(g_nearest_neighbor_sampler, g_depth_image.imageView(),
+               vk::ImageLayout::eDepthReadOnlyOptimal)
+
+        // Light depth textures.
+        // .beginImages(1, 0, vk::DescriptorType::eCombinedImageSampler)
+
+        .update(g_device);
+    assert(dsu.ok());
+}
+
 void render_and_present() {
     static uint32_t frame = 0;
 

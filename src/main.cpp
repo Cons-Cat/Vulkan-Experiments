@@ -77,7 +77,7 @@ auto main() -> int {
                                game_width, game_height, depth_format);
 
     vku::SamplerMaker sampler_maker;
-    vk::Sampler nearest_sampler = sampler_maker.create(g_device);
+    g_nearest_neighbor_sampler = sampler_maker.create(g_device);
 
     create_sync_objects();
     defer {
@@ -149,32 +149,7 @@ auto main() -> int {
     dsm.layout(g_descriptor_layout);
     g_descriptor_set = dsm.create(g_device, descriptor_pool).front();
 
-    vku::DescriptorSetUpdater dsu;
-    dsu.beginDescriptorSet(g_descriptor_set)
-        .beginBuffers(0, 0, vk::DescriptorType::eStorageBuffer)
-        .buffer(g_buffer.buffer(), 0, vk::WholeSize)
-
-        .beginImages(1, 0, vk::DescriptorType::eCombinedImageSampler)
-        // Color map.
-        .image(nearest_sampler, g_color_image.imageView(),
-               vk::ImageLayout::eShaderReadOnlyOptimal)
-        // Normal map.
-        .image(nearest_sampler, g_normal_image.imageView(),
-               vk::ImageLayout::eShaderReadOnlyOptimal)
-        // XYZ map.
-        .image(nearest_sampler, g_xyz_image.imageView(),
-               vk::ImageLayout::eShaderReadOnlyOptimal)
-
-        // Instance ID map.
-        .image(nearest_sampler, g_id_image.imageView(),
-               vk::ImageLayout::eShaderReadOnlyOptimal)
-
-        // Rasterization depth map.
-        .image(nearest_sampler, g_depth_image.imageView(),
-               vk::ImageLayout::eDepthReadOnlyOptimal)
-
-        .update(g_device);
-    assert(dsu.ok());
+    update_descriptors();
 
     // Compile and link shaders.
     shader_objects.add_compute_shader(getexepath().parent_path() /
