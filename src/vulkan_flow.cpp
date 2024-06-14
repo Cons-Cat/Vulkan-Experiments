@@ -560,6 +560,7 @@ void record_compositing(vk::CommandBuffer& cmd, std::size_t frame) {
     shader_objects.bind_fragment(cmd, 5);
 
     // Draw a hard-coded triangle.
+    cmd.setVertexInputEXT({}, {});
     cmd.draw(3, 1, 0, 0);
 
     cmd.endRendering();
