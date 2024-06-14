@@ -2,6 +2,8 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include "light.hpp"
+
 void buffer_storage::reset() {
     m_next_instance_id = 0;
 
@@ -127,4 +129,14 @@ void buffer_storage::push_properties() {
     // Bit-copy the properties into `m_data`.
     std::memcpy(p_destination, m_instance_properties.data(),
                 m_instance_properties.size() * sizeof(property));
+
+    // Push light sources.
+    set_lights_offset(static_cast<member_type>(m_data.size()));
+    p_destination = m_data.data() + m_data.size();
+    // Reserve storage in `m_data` for command properties.
+    m_data.resize(m_data.size() +
+                  (g_lights.transforms.size() * sizeof(glm::mat4x4)));
+    // Bit-copy the lights into `m_data`.
+    std::memcpy(p_destination, g_lights.transforms.data(),
+                g_lights.transforms.size() * sizeof(glm::mat4x4));
 }

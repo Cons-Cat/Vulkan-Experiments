@@ -155,6 +155,15 @@ class buffer_storage {
         return get_at<member_type>(member_stride * 6z);
     }
 
+    void set_lights_offset(member_type offset) {
+        set_at(offset, member_stride * 7z);
+    }
+
+    [[nodiscard]]
+    auto get_lights_offset() const -> member_type const& {
+        return get_at<member_type>(member_stride * 7z);
+    }
+
     // Camera getters/setters.
     void set_view_matrix(glm::mat4x4 matrix) {
         set_at(matrix, cameras_offset);

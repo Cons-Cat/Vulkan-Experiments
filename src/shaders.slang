@@ -1,5 +1,5 @@
-struct camera {
-    float4x4 mat;
+struct light {
+    float4x4 transform;
 };
 
 struct buffer_storage {
@@ -24,6 +24,10 @@ struct buffer_storage {
 
     uint get_index(uint index) {
         return get_at<uint>(get_index_offset() + (index * sizeof(uint)));
+    }
+
+    light get_light(uint index) {
+        return get_at<light>(get_lights_offset() + (index * sizeof(light)));
     }
 
     struct property {
@@ -80,6 +84,15 @@ struct buffer_storage {
 
     uint get_properties_offset() {
         return get_at<member_type>(member_stride * 6);
+    }
+    
+    [mutating]
+    void set_lights_offset(uint index, member_type new_offset) {
+        return set_at<member_type>(member_stride * 7, new_offset);
+    }
+
+    uint get_lights_offset() {
+        return get_at<member_type>(member_stride * 7);
     }
     
     [mutating]
@@ -152,8 +165,15 @@ float3 rotate_vector(float3 v, float4 r)
 vs_out demo_vertex_main(in vs_in vert,
                         in uint invocation_index : SV_VertexID,
                         in uint instance_index : SV_InstanceID) {
+    // TODO: Use constant generics rather than the preprocessor for this.
     // Bring vertex into projection space:
+#ifdef is_camera
     float4x4 view = g_bindless.get_view_matrix();
+#else
+    float4x4 view = g_bindless.get_light(0).transform;
+#endif
+
+    // TODO: Support per-light projections.
     float4x4 proj = g_bindless.get_proj_matrix();
     float4x4 view_proj = mul(proj, view);
 
@@ -166,6 +186,7 @@ vs_out demo_vertex_main(in vs_in vert,
     out_pos.xyz += vert.instance_pos;
     
     float3 xyz = out_pos.xyz;
+
     out_pos = mul(view_proj, out_pos);
 
     float3 colors[3] = {

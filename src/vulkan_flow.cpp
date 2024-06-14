@@ -2,6 +2,7 @@
 
 #include "bindless.hpp"
 #include "globals.hpp"
+#include "light.hpp"
 #include "shader_objects.hpp"
 
 auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
@@ -119,9 +120,10 @@ void create_sync_objects() {
 }
 
 void update_descriptors() {
-    vku::DescriptorSetUpdater dsu;
-    dsu.beginDescriptorSet(g_descriptor_set)
-        .beginBuffers(0, 0, vk::DescriptorType::eStorageBuffer)
+    vku::DescriptorSetUpdater dsu_camera;
+    dsu_camera.beginDescriptorSet(g_descriptor_set);
+
+    dsu_camera.beginBuffers(0, 0, vk::DescriptorType::eStorageBuffer)
         .buffer(g_buffer.buffer(), 0, vk::WholeSize)
 
         .beginImages(1, 0, vk::DescriptorType::eCombinedImageSampler)
@@ -134,20 +136,24 @@ void update_descriptors() {
         // XYZ map.
         .image(g_nearest_neighbor_sampler, g_xyz_image.imageView(),
                vk::ImageLayout::eShaderReadOnlyOptimal)
-
         // Instance ID map.
         .image(g_nearest_neighbor_sampler, g_id_image.imageView(),
                vk::ImageLayout::eShaderReadOnlyOptimal)
-
         // Rasterization depth map.
         .image(g_nearest_neighbor_sampler, g_depth_image.imageView(),
-               vk::ImageLayout::eDepthReadOnlyOptimal)
+               vk::ImageLayout::eDepthReadOnlyOptimal);
 
+    if (!g_lights.light_maps.empty()) {
         // Light depth textures.
-        // .beginImages(1, 0, vk::DescriptorType::eCombinedImageSampler)
+        dsu_camera.beginImages(2, 0, vk::DescriptorType::eCombinedImageSampler);
+        for (auto&& image : g_lights.light_maps) {
+            dsu_camera.image(g_nearest_neighbor_sampler, image.imageView(),
+                             vk::ImageLayout::eDepthReadOnlyOptimal);
+        }
+    }
 
-        .update(g_device);
-    assert(dsu.ok());
+    dsu_camera.update(g_device);
+    assert(dsu_camera.ok());
 }
 
 void render_and_present() {
@@ -323,11 +329,11 @@ void set_all_render_state(vk::CommandBuffer cmd) {
                            0, g_descriptor_set, {});
 }
 
-void record_rendering(vk::CommandBuffer& cmd) {
-    vk::ClearColorValue clear_color = {1.f, 0.f, 1.f, 0.f};
-    vk::ClearColorValue black_clear_color = {0, 0, 0, 1};
-    vk::ClearColorValue depth_clear_color = {1.f, 1.f, 1.f, 1.f};
+constexpr vk::ClearColorValue clear_color = {1.f, 0.f, 1.f, 0.f};
+constexpr vk::ClearColorValue black_clear_color = {0, 0, 0, 1};
+constexpr vk::ClearColorValue depth_clear_color = {1.f, 1.f, 1.f, 1.f};
 
+void record_rendering(vk::CommandBuffer& cmd) {
     vk::Viewport viewport;
     viewport.setWidth(game_width)
         .setHeight(game_height)
@@ -405,7 +411,7 @@ void record_rendering(vk::CommandBuffer& cmd) {
 
     // Rasterizing color, normals, IDs, and depth for the world in view.
     shader_objects.bind_vertex(cmd, 1);
-    shader_objects.bind_fragment(cmd, 2);
+    shader_objects.bind_fragment(cmd, 3);
 
     // TODO: Use the sized buffers so that debuggers have more info once
     // RenderDoc supports this feature.
@@ -433,6 +439,65 @@ void record_rendering(vk::CommandBuffer& cmd) {
         sizeof(vk::DrawIndexedIndirectCommand));
 
     cmd.endRendering();
+}
+
+void record_light(vk::CommandBuffer& cmd, std::size_t light_index) {
+    vk::Viewport viewport;
+    viewport.setWidth(game_width)
+        .setHeight(game_height)
+        .setX(0)
+        .setY(0)
+        .setMinDepth(0.f)
+        .setMaxDepth(1.f);
+    vk::Rect2D scissor;
+    scissor.setOffset({0, 0}).setExtent({game_width, game_height});
+    vk::Rect2D render_area;
+    render_area.setOffset({0, 0}).setExtent({game_width, game_height});
+
+    cmd.setViewportWithCount(1, &viewport);
+    cmd.setScissorWithCount(1, &scissor);
+
+    for (auto&& image : g_lights.light_maps) {
+        vk::RenderingAttachmentInfoKHR depth_attachment_info;
+        depth_attachment_info.setClearValue(depth_clear_color)
+            .setImageLayout(vk::ImageLayout::eDepthAttachmentOptimal)
+            .setImageView(image.imageView())
+            .setLoadOp(vk::AttachmentLoadOp::eClear)
+            .setStoreOp(vk::AttachmentStoreOp::eStore);
+
+        vk::RenderingInfo rendering_info;
+        rendering_info.setRenderArea(render_area)
+            .setLayerCount(1)
+            .setPDepthAttachment(&depth_attachment_info);
+
+        image.setLayout(cmd, vk::ImageLayout::eDepthAttachmentOptimal,
+                        vk::ImageAspectFlagBits::eDepth);
+
+        cmd.beginRendering(rendering_info);
+
+        set_all_render_state(cmd);
+
+        // Rasterizing depth for the world in view.
+        shader_objects.bind_vertex(cmd, 2);
+        shader_objects.bind_fragment(cmd, 3);
+
+        cmd.bindVertexBuffers(0, {g_buffer.buffer(), g_buffer.buffer()},
+                              {g_bindless_data.vertices_offset,
+                               g_bindless_data.get_properties_offset()});
+
+        cmd.bindIndexBuffer(g_buffer.buffer(),
+                            g_bindless_data.get_index_offset(),
+                            vk::IndexType::eUint32);
+
+        // 16 is the byte offset of the instance count into the bindless buffer.
+        cmd.drawIndexedIndirectCount(
+            g_buffer.buffer(), g_bindless_data.get_instance_commands_offset(),
+            g_buffer.buffer(), 16,
+            g_bindless_data.get_instance_commands_count(),
+            sizeof(vk::DrawIndexedIndirectCommand));
+
+        cmd.endRendering();
+    }
 }
 
 void record_compositing(vk::CommandBuffer& cmd, std::size_t frame) {
@@ -502,8 +567,8 @@ void record_compositing(vk::CommandBuffer& cmd, std::size_t frame) {
 
     cmd.beginRendering(rendering_info);
 
-    shader_objects.bind_vertex(cmd, 3);
-    shader_objects.bind_fragment(cmd, 4);
+    shader_objects.bind_vertex(cmd, 4);
+    shader_objects.bind_fragment(cmd, 5);
 
     // Draw a hard-coded triangle.
     cmd.draw(3, 1, 0, 0);
@@ -542,6 +607,7 @@ void record() {
         cmd.begin(begin_info);
 
         record_rendering(cmd);
+        record_light(cmd, 0);
         record_compositing(cmd, i);
 
         cmd.end();

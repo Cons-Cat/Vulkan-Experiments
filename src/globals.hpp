@@ -44,6 +44,7 @@ inline std::vector<VkFence> g_image_in_flight;
 
 inline vk::DescriptorSet g_descriptor_set;
 inline vk::DescriptorSetLayout g_descriptor_layout;
+inline vk::DescriptorSetLayout g_descriptor_layout_lights;
 inline vk::PipelineLayout g_pipeline_layout;
 
 inline vkb::PhysicalDevice g_physical_device;

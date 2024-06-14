@@ -96,19 +96,22 @@ auto main() -> int {
 
     vku::DescriptorSetLayoutMaker dslm;
     g_descriptor_layout =
-        dslm.buffer(
-                // Bindless storage buffer.
-                0, vk::DescriptorType::eStorageBuffer,
-                vk::ShaderStageFlagBits::eAllGraphics, 1)
+        dslm
+            // Bindless world data.
+            .buffer(0, vk::DescriptorType::eStorageBuffer,
+                    vk::ShaderStageFlagBits::eAllGraphics, 1)
             // Color/normal/xyz maps.
             .image(1, vk::DescriptorType::eCombinedImageSampler,
-                   vk::ShaderStageFlagBits::eFragment, 3)
-            // Instance ID map.
+                   vk::ShaderStageFlagBits::eFragment, 5)
+            // // Instance ID map.
+            // .image(2, vk::DescriptorType::eCombinedImageSampler,
+            //        vk::ShaderStageFlagBits::eFragment, 1)
+            // // Depth map.
+            // .image(3, vk::DescriptorType::eCombinedImageSampler,
+            //        vk::ShaderStageFlagBits::eFragment, 1)
+            // Light maps.
             .image(2, vk::DescriptorType::eCombinedImageSampler,
-                   vk::ShaderStageFlagBits::eFragment, 1)
-            // Depth map.
-            .image(3, vk::DescriptorType::eCombinedImageSampler,
-                   vk::ShaderStageFlagBits::eFragment, 1)
+                   vk::ShaderStageFlagBits::eFragment, g_lights.capacity())
             .createUnique(g_device)
             .release();
 
@@ -119,7 +122,9 @@ auto main() -> int {
 
     std::vector<vk::DescriptorPoolSize> pool_sizes;
     pool_sizes.emplace_back(vk::DescriptorType::eStorageBuffer, 1);
-    pool_sizes.emplace_back(vk::DescriptorType::eCombinedImageSampler, 5);
+    pool_sizes.emplace_back(vk::DescriptorType::eCombinedImageSampler,
+                            // Five compositing textures, plus light maps.
+                            5 + g_lights.capacity());
 
     // Create an arbitrary number of descriptors in a pool.
     // Allow the descriptors to be freed, possibly not optimal behaviour.
@@ -149,13 +154,25 @@ auto main() -> int {
     dsm.layout(g_descriptor_layout);
     g_descriptor_set = dsm.create(g_device, descriptor_pool).front();
 
+    // Push a light into the scene.
+    glm::mat4x4 light_transform = glm::identity<glm::mat4x4>();
+    light_transform = glm::rotate(light_transform, -45.f, {.5f, -.5f, 0});
+    light_transform = glm::translate(light_transform, {3, -2, 3});
+    light_transform =
+        glm::lookAt(glm::vec3{2.5f, 2.f, 2.f}, glm::vec3{0.f, 0.f, 0.f},
+                    glm::vec3{0.f, 1.f, 0.f});
+
+    g_lights.push_back(light_transform);
+
     update_descriptors();
 
     // Compile and link shaders.
     shader_objects.add_compute_shader(getexepath().parent_path() /
                                       "../culling.spv");
     shader_objects.add_vertex_shader(getexepath().parent_path() /
-                                     "../vertex.spv");
+                                     "../vertex_camera.spv");
+    shader_objects.add_vertex_shader(getexepath().parent_path() /
+                                     "../vertex_light.spv");
     shader_objects.add_fragment_shader(getexepath().parent_path() /
                                        "../fragment.spv");
 

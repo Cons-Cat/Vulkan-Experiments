@@ -50,9 +50,12 @@ target_link_options(game PRIVATE
 # TODO: Add `BYPRODUCTS`.
 set(shaders ${CMAKE_SOURCE_DIR}/src/shaders.slang)
 
+# TODO: Use `-specialize` instead of `-D`.
 add_custom_target(shaders
-  # Vertex shader.
-  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/vertex.spv -profile sm_6_6 -entry demo_vertex_main -O2 -Wno-39001 -emit-spirv-directly
+  # Vertex shader for camera.
+  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/vertex_camera.spv -profile sm_6_6 -entry demo_vertex_main -O2 -Wno-39001 -emit-spirv-directly -Dis_camera
+  # Vertex shader for light sources.
+  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/vertex_light.spv -profile sm_6_6 -entry demo_vertex_main -O2 -Wno-39001 -emit-spirv-directly
   # Fragment shader.
   COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/fragment.spv -entry demo_fragment_main -O2 -Wno-39001 -emit-spirv-directly
   # Culling compute shader.
