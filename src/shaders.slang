@@ -167,6 +167,7 @@ vs_out demo_vertex_main(in vs_in vert,
                         in uint instance_index : SV_InstanceID) {
     // TODO: Use constant generics rather than the preprocessor for this.
     // Bring vertex into projection space:
+    // `is_camera` is defined in `../CMakeLists.txt`
 #ifdef is_camera
     float4x4 view = g_bindless.get_view_matrix();
 #else

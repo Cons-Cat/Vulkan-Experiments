@@ -548,21 +548,10 @@ void record_compositing(vk::CommandBuffer& cmd, std::size_t frame) {
     vk::Rect2D render_area;
     render_area.setOffset({0, 0}).setExtent(g_swapchain.extent);
 
-    vk::RenderingAttachmentInfoKHR color_attachment_info;
-    color_attachment_info
-        .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
-        .setImageView(g_color_image.imageView())
-        .setLoadOp(vk::AttachmentLoadOp::eClear)
-        .setStoreOp(vk::AttachmentStoreOp::eStore);
-
-    std::array const attachments = {color_attachment_info};
-
     vk::RenderingInfo rendering_info;
     rendering_info.setRenderArea(render_area)
         .setLayerCount(1)
-        .setColorAttachments(attachments);
-
-    rendering_info.setColorAttachments(swapchain_attachment_info)
+        .setColorAttachments(swapchain_attachment_info)
         .setPDepthAttachment(nullptr);
 
     cmd.beginRendering(rendering_info);
