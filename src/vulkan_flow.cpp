@@ -227,6 +227,7 @@ void render_and_present() {
 
 void set_all_render_state(vk::CommandBuffer cmd) {
     cmd.setLineWidth(1.0);
+    // TODO: Re-enable back face culling after fixing plane mesh winding.
     cmd.setCullMode(vk::CullModeFlagBits::eNone);
     cmd.setPolygonModeEXT(vk::PolygonMode::eFill);
     vk::ColorBlendEquationEXT color_blend_equations[3]{};
@@ -250,7 +251,7 @@ void set_all_render_state(vk::CommandBuffer cmd) {
 
     vk::VertexInputAttributeDescription2EXT per_vertex_attribute{};
     per_vertex_attribute.setBinding(0).setLocation(0).setOffset(0).setFormat(
-        vk::Format::eR32G32B32A32Sfloat);
+        vk::Format::eR32G32B32A32Sfloat);  // `glm::vec3`
 
     // Per-instance bindings and attributes:
     vk::VertexInputBindingDescription2EXT per_instance_binding{};
@@ -364,9 +365,10 @@ void record_rendering(vk::CommandBuffer& cmd) {
         .setStoreOp(vk::AttachmentStoreOp::eStore);
 
     vk::RenderingAttachmentInfoKHR xyz_attachment_info;
-    xyz_attachment_info.setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
+    xyz_attachment_info.setClearValue(black_clear_color)
+        .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
         .setImageView(g_xyz_image.imageView())
-        .setLoadOp(vk::AttachmentLoadOp::eDontCare)
+        .setLoadOp(vk::AttachmentLoadOp::eClear)
         .setStoreOp(vk::AttachmentStoreOp::eStore);
 
     vk::RenderingAttachmentInfoKHR id_attachment_info;
@@ -457,6 +459,9 @@ void record_light(vk::CommandBuffer& cmd, std::size_t light_index) {
     cmd.setViewportWithCount(1, &viewport);
     cmd.setScissorWithCount(1, &scissor);
 
+    // cmd.setDepthBiasEnable(vk::True);
+    // cmd.setDepthBias(1.25f, 1.25f, 1.75f);
+
     for (auto&& image : g_lights.light_maps) {
         vk::RenderingAttachmentInfoKHR depth_attachment_info;
         depth_attachment_info.setClearValue(depth_clear_color)
@@ -508,6 +513,11 @@ void record_compositing(vk::CommandBuffer& cmd, std::size_t frame) {
     g_id_image.setLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
     g_depth_image.setLayout(cmd, vk::ImageLayout::eDepthReadOnlyOptimal,
                             vk::ImageAspectFlagBits::eDepth);
+
+    for (auto&& image : g_lights.light_maps) {
+        image.setLayout(cmd, vk::ImageLayout::eDepthReadOnlyOptimal,
+                        vk::ImageAspectFlagBits::eDepth);
+    }
 
     // The hard-coded compositing triangle does not require depth-testing.
     cmd.setDepthTestEnable(vk::False);

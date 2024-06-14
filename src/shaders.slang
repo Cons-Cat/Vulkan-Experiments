@@ -196,7 +196,11 @@ vs_out demo_vertex_main(in vs_in vert,
 
     const float3 color = colors[invocation_index % 3];
 
+#ifdef is_camera
     return {out_pos, xyz, color, vert.id};
+#else
+    return {out_pos};
+#endif
 }
 
 struct frag_out {
@@ -228,10 +232,13 @@ void culling_main(uint3 sv_dispatchThreadID : SV_DispatchThreadID) {
 Sampler2D<float4> color_textures[];
 
 [vk::binding(1, 0)]
-Sampler2D<uint> id_texture[4];
+Sampler2D<uint> id_texture[4]; // Only index 2 may be used.
 
 [vk::binding(1, 0)]
-Sampler2D<float> depth_texture[5];
+Sampler2D<float> depth_texture[5]; // Only index 3 may be used.
+
+[vk::binding(2, 0)]
+Sampler2D<float> light_maps[];
 
 // Generate a triangle that covers the screen.
 [shader("vertex")]
@@ -254,11 +261,30 @@ uint test_adjacency(uint3 coord, uint self, float depth) {
 float4 composite_fragment_main(float2 uv : SV_Position) : SV_Target0 {
     const uint x = uint(uv.x);    
     const uint y = uint(uv.y);
+    const uint3 coord = uint3(x, y, 0);
 
-    uint self = id_texture[3].Load(uint3(x, y, 0));
+    uint self = id_texture[3].Load(coord);
 
     uint adjacencies = 0;
-    float depth = depth_texture[4].Load(uint3(x, y, 0));
+    float depth = depth_texture[4].Load(coord);
+
+    float3 frag_xyz = color_textures[2].Load(coord).xyz;
+
+    float4x4 light_transform = mul(g_bindless.get_proj_matrix(),
+       g_bindless.get_light(0).transform);
+
+    float4x4 m = {
+        0.5f,    0, 0, 0.5f,
+           0, 0.5f, 0, 0.5f,
+           0,    0, 1,    0,
+           0,    0, 0,    1
+    };
+    light_transform = mul(m, light_transform);
+
+    float4 light_space_vert = mul(light_transform, float4(frag_xyz, 1));
+    float3 light_map_coord = light_space_vert.xyz / light_space_vert.w;
+    float light = light_maps[0].Sample(light_map_coord.xy)
+        < light_map_coord.z - 0.00001f ? 0.15f : 1.f;
 
     // Left adjacency.
     if (x > 0) {
@@ -285,5 +311,6 @@ float4 composite_fragment_main(float2 uv : SV_Position) : SV_Target0 {
         return float4(1, 1, 1, 1);
     }
 
-    return color_textures[0].Load(uint3(uint(uv.x), uint(uv.y), 0));
+    float3 color = color_textures[0].Load(uint3(uint(uv.x), uint(uv.y), 0)).rgb;
+    return float4(color * light, 1);
 }
