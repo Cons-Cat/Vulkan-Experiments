@@ -11,25 +11,43 @@
 #include "defer.hpp"
 #include "glm/fwd.hpp"
 
-struct alignas(16) vertex {
+struct vertex {
     constexpr vertex() = default;
 
     // NOLINTNEXTLINE
     constexpr vertex(float x, float y, float z = 0.f, float w = 1.f)
-        : x(x), y(y), z(z), w(w) {
+        : position(x, y, z, w) {
     }
 
-    float x;  // NOLINT
-    float y;  // NOLINT
-    float z;  // NOLINT
-    float w;  // NOLINT
+    alignas(16) glm::vec4 position;
+    alignas(16) glm::vec3 normal;
 };
 
 using index_type = unsigned int;
 
 struct mesh {
-    std::vector<vertex> vertices;
-    std::vector<index_type> indices;
+    constexpr mesh(std::vector<vertex>&& verts,
+                   std::vector<index_type>&& inds) {
+        assert((inds.size() % 3) == 0);
+        m_vertices = std::move(verts);
+        m_indices = std::move(inds);
+
+        for (std::size_t i = 0; i < m_indices.size(); i += 3) {
+            glm::vec3 a = m_vertices[m_indices[i]].position;
+            glm::vec3 b = m_vertices[m_indices[i + 1]].position;
+            glm::vec3 c = m_vertices[m_indices[i + 2]].position;
+            glm::vec3 ab = b - a;
+            glm::vec3 ac = c - a;
+
+            glm::vec3 normal = glm::cross(ab, ac);
+            m_vertices[m_indices[i]].normal = normal;
+            m_vertices[m_indices[i + 1]].normal = normal;
+            m_vertices[m_indices[i + 2]].normal = normal;
+        }
+    }
+
+    std::vector<vertex> m_vertices;
+    std::vector<index_type> m_indices;
 };
 
 struct mesh_instance {
@@ -100,6 +118,23 @@ class buffer_storage {
         return reinterpret_cast<vertex const*>(m_data.data() +
                                                get_vertex_count());
     }
+
+    [[nodiscard, gnu::noinline, gnu::used]]
+    auto get_vertex(uint index) const -> vertex {
+        return get_at<vertex>(vertices_offset + (index * sizeof(vertex)));
+    }
+
+    [[nodiscard]]
+    auto get_index(uint index) const -> uint {
+        return get_at<uint>(get_index_offset() + (index * sizeof(uint)));
+    }
+
+    // [[nodiscard]]
+    // auto get_light(uint index) const -> light {
+    //     return get_at<light>(get_lights_offset() + (index * sizeof(light)));
+    // }
+
+    //
 
     void set_index_count(member_type count) {
         set_at(count, member_stride);

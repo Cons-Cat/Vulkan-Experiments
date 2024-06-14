@@ -100,15 +100,9 @@ auto main() -> int {
             // Bindless world data.
             .buffer(0, vk::DescriptorType::eStorageBuffer,
                     vk::ShaderStageFlagBits::eAllGraphics, 1)
-            // Color/normal/xyz maps.
+            // Color/normal/xyz/ID/depth maps.
             .image(1, vk::DescriptorType::eCombinedImageSampler,
                    vk::ShaderStageFlagBits::eFragment, 5)
-            // // Instance ID map.
-            // .image(2, vk::DescriptorType::eCombinedImageSampler,
-            //        vk::ShaderStageFlagBits::eFragment, 1)
-            // // Depth map.
-            // .image(3, vk::DescriptorType::eCombinedImageSampler,
-            //        vk::ShaderStageFlagBits::eFragment, 1)
             // Light maps.
             .image(2, vk::DescriptorType::eCombinedImageSampler,
                    vk::ShaderStageFlagBits::eFragment, g_lights.capacity())
@@ -156,13 +150,14 @@ auto main() -> int {
 
     // Push a light into the scene.
     glm::mat4x4 light_transform = glm::identity<glm::mat4x4>();
+    glm::vec3 light_position = {3, -2, 3};
     light_transform = glm::rotate(light_transform, -45.f, {.5f, -.5f, 0});
-    light_transform = glm::translate(light_transform, {3, -2, 3});
+    light_transform = glm::translate(light_transform, light_position);
     light_transform =
         glm::lookAt(glm::vec3{2.5f, 2.f, 2.f}, glm::vec3{0.f, 0.f, 0.f},
                     glm::vec3{0.f, 1.f, 0.f});
 
-    g_lights.push_back(light_transform);
+    g_lights.push_back({light_transform, projection_matrix, light_position});
 
     update_descriptors();
 
@@ -218,13 +213,15 @@ auto main() -> int {
         mesh_instance const cube_inst1 = {
             .position = {-1, 0, 0},
             .rotation = glm::toQuat(a),
-            .index_count = static_cast<index_type>(g_cube_mesh.indices.size()),
+            .index_count =
+                static_cast<index_type>(g_cube_mesh.m_indices.size()),
         };
 
         mesh_instance const cube_inst2 = {
             .position = {1, 0.15f, 0.5f},
             .rotation = glm::toQuat(b),
-            .index_count = static_cast<index_type>(g_cube_mesh.indices.size()),
+            .index_count =
+                static_cast<index_type>(g_cube_mesh.m_indices.size()),
         };
 
         mesh_instance const plane_inst = {
@@ -232,7 +229,8 @@ auto main() -> int {
             // clang-format off
             .scaling = {10.f, 10.f, 10.f},
             // clang-format on
-            .index_count = static_cast<index_type>(g_plane_mesh.indices.size()),
+            .index_count =
+                static_cast<index_type>(g_plane_mesh.m_indices.size()),
         };
 
         g_bindless_data.push_instances_of(0, {cube_inst1, cube_inst2});

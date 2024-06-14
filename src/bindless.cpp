@@ -37,16 +37,17 @@ void buffer_storage::push_mesh(mesh const& mesh) {
     assert(get_index_count() == 0);
 
     // Reserve storage in `m_data` for `mesh`.
-    m_data.resize(m_data.size() + (mesh.vertices.size() * sizeof(vertex)));
+    m_data.resize(m_data.size() + (mesh.m_vertices.size() * sizeof(vertex)));
 
     // Bit-copy the mesh into `m_data`.
-    std::memcpy(p_destination, mesh.vertices.data(),
-                mesh.vertices.size() * sizeof(vertex));
-    add_vertex_count(static_cast<member_type>(mesh.vertices.size()));
+    std::memcpy(p_destination, mesh.m_vertices.data(),
+                mesh.m_vertices.size() * sizeof(vertex));
+    add_vertex_count(static_cast<member_type>(mesh.m_vertices.size()));
 
     // Copy the mesh's indices into `m_indices` to be concatenated onto
     // `m_data` in the future with `.push_indices()`.
-    m_indices.insert(m_indices.end(), mesh.indices.begin(), mesh.indices.end());
+    m_indices.insert(m_indices.end(), mesh.m_indices.begin(),
+                     mesh.m_indices.end());
 }
 
 void buffer_storage::push_indices() {
@@ -135,8 +136,8 @@ void buffer_storage::push_properties() {
     p_destination = m_data.data() + m_data.size();
     // Reserve storage in `m_data` for command properties.
     m_data.resize(m_data.size() +
-                  (g_lights.transforms.size() * sizeof(glm::mat4x4)));
+                  (g_lights.transforms.size() * sizeof(lights::light)));
     // Bit-copy the lights into `m_data`.
     std::memcpy(p_destination, g_lights.transforms.data(),
-                g_lights.transforms.size() * sizeof(glm::mat4x4));
+                g_lights.transforms.size() * sizeof(lights::light));
 }

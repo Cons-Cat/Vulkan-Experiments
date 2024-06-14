@@ -249,9 +249,17 @@ void set_all_render_state(vk::CommandBuffer cmd) {
         .setStride(sizeof(vertex))
         .setDivisor(1);
 
-    vk::VertexInputAttributeDescription2EXT per_vertex_attribute{};
-    per_vertex_attribute.setBinding(0).setLocation(0).setOffset(0).setFormat(
-        vk::Format::eR32G32B32A32Sfloat);  // `glm::vec3`
+    vk::VertexInputAttributeDescription2EXT per_vertex_position_attribute{};
+    per_vertex_position_attribute.setBinding(0)
+        .setLocation(0)
+        .setOffset(0)
+        .setFormat(vk::Format::eR32G32B32A32Sfloat);  // `glm::vec4`
+
+    vk::VertexInputAttributeDescription2EXT per_vertex_normal_attribute{};
+    per_vertex_normal_attribute.setBinding(0)
+        .setLocation(1)
+        .setOffset(offsetof(vertex, normal))
+        .setFormat(vk::Format::eR32G32B32A32Sfloat);  // `glm::vec3`
 
     // Per-instance bindings and attributes:
     vk::VertexInputBindingDescription2EXT per_instance_binding{};
@@ -262,33 +270,33 @@ void set_all_render_state(vk::CommandBuffer cmd) {
 
     vk::VertexInputAttributeDescription2EXT per_instance_position_attribute{};
     per_instance_position_attribute.setBinding(1)
-        .setLocation(1)
+        .setLocation(2)
         .setOffset(offsetof(buffer_storage::property, position))
         .setFormat(vk::Format::eR32G32B32Sfloat);  // `glm::vec3`
 
     vk::VertexInputAttributeDescription2EXT per_instance_rotation_attribute{};
     per_instance_rotation_attribute.setBinding(1)
-        .setLocation(2)
+        .setLocation(3)
         .setOffset(offsetof(buffer_storage::property, rotation))
         .setFormat(vk::Format::eR32G32B32A32Sfloat);  // `glm::fquat`
 
     vk::VertexInputAttributeDescription2EXT per_instance_scaling_attribute{};
     per_instance_scaling_attribute.setBinding(1)
-        .setLocation(3)
+        .setLocation(4)
         .setOffset(offsetof(buffer_storage::property, scaling))
         .setFormat(vk::Format::eR32G32B32Sfloat);  // `glm::vec3`
 
     vk::VertexInputAttributeDescription2EXT per_instance_id_attribute{};
     per_instance_id_attribute.setBinding(1)
-        .setLocation(4)
+        .setLocation(5)
         .setOffset(offsetof(buffer_storage::property, id))
         .setFormat(vk::Format::eR32Uint);  // `unsigned`
 
     cmd.setVertexInputEXT(
         {per_vertex_binding, per_instance_binding},
-        {per_vertex_attribute, per_instance_position_attribute,
-         per_instance_rotation_attribute, per_instance_scaling_attribute,
-         per_instance_id_attribute});
+        {per_vertex_position_attribute, per_vertex_normal_attribute,
+         per_instance_position_attribute, per_instance_rotation_attribute,
+         per_instance_scaling_attribute, per_instance_id_attribute});
 
     cmd.setDepthClampEnableEXT(vk::False);
     cmd.setDepthClipEnableEXT(vk::False);
@@ -443,7 +451,7 @@ void record_rendering(vk::CommandBuffer& cmd) {
     cmd.endRendering();
 }
 
-void record_light(vk::CommandBuffer& cmd, std::size_t light_index) {
+void record_light(vk::CommandBuffer& cmd) {
     vk::Viewport viewport;
     viewport.setWidth(game_width)
         .setHeight(game_height)
@@ -458,9 +466,6 @@ void record_light(vk::CommandBuffer& cmd, std::size_t light_index) {
 
     cmd.setViewportWithCount(1, &viewport);
     cmd.setScissorWithCount(1, &scissor);
-
-    // cmd.setDepthBiasEnable(vk::True);
-    // cmd.setDepthBias(1.25f, 1.25f, 1.75f);
 
     for (auto&& image : g_lights.light_maps) {
         vk::RenderingAttachmentInfoKHR depth_attachment_info;
@@ -607,7 +612,7 @@ void record() {
         cmd.begin(begin_info);
 
         record_rendering(cmd);
-        record_light(cmd, 0);
+        record_light(cmd);
         record_compositing(cmd, i);
 
         cmd.end();

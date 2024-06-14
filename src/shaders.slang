@@ -1,5 +1,12 @@
 struct light {
     float4x4 transform;
+    float4x4 projection;
+    float3 position;
+};
+
+struct per_vertex {
+    float4 position;
+    float3 normal;
 };
 
 struct buffer_storage {
@@ -18,8 +25,8 @@ struct buffer_storage {
         return buffer.Load<T>(byte_offset);
     }
 
-    float4 get_vertex(uint index) {
-        return get_at<float4>(vertices_offset + (index * sizeof(float4)));
+    per_vertex get_vertex(uint index) {
+        return get_at<per_vertex>(vertices_offset + (index * sizeof(per_vertex)));
     }
 
     uint get_index(uint index) {
@@ -28,6 +35,11 @@ struct buffer_storage {
 
     light get_light(uint index) {
         return get_at<light>(get_lights_offset() + (index * sizeof(light)));
+    }
+
+    
+    float4x4 get_viewproj() {
+        return mul(get_proj_matrix(), get_view_matrix());
     }
 
     struct property {
@@ -124,20 +136,24 @@ struct vs_in {
     float4 model_pos : POSITION0;
     
     [vk::location(1)]
-    float3 instance_pos : POSITION1;
-    
+    float3 normal : NORMAL;
+
     [vk::location(2)]
+    float3 instance_pos;
+    
+    [vk::location(3)]
     float4 instance_rot;
 
-    [vk::location(3)]
-    float3 instance_scale : POSITION1;
-    
     [vk::location(4)]
+    float3 instance_scale;
+    
+    [vk::location(5)]
     uint id;
 };
 
 struct vs_out {
     float4 position : SV_Position;
+    float3 normal;
     float3 xyz;
     float3 color;
     uint id;
@@ -180,9 +196,12 @@ vs_out demo_vertex_main(in vs_in vert,
 
     float4 out_pos = vert.model_pos;
     out_pos.xyz *= vert.instance_scale;
+    float3 normal = vert.normal;
+    
     // If no rotation is provided, the quaternion is 0.
     if (vert.instance_rot.w != 0) {
         out_pos.xyz = rotate_vector(out_pos.xyz, vert.instance_rot);
+        normal = rotate_vector(normal, vert.instance_rot);
     }
     out_pos.xyz += vert.instance_pos;
     
@@ -194,10 +213,12 @@ vs_out demo_vertex_main(in vs_in vert,
         float3 (1.0, 0.0, 0.0), float3 (0.0, 1.0, 0.0), float3 (0.0, 0.0, 1.0),
     };
 
-    const float3 color = colors[invocation_index % 3];
+    float3 color = colors[invocation_index % 3];
+
+    normal = normalize(mul(view_proj, float4(normal, 1)).xyz);
 
 #ifdef is_camera
-    return {out_pos, xyz, color, vert.id};
+    return {out_pos, normal, xyz, color, vert.id};
 #else
     return {out_pos};
 #endif
@@ -214,7 +235,7 @@ struct frag_out {
 frag_out demo_fragment_main(in vs_out input) {
     frag_out output = {};
     output.color = float4(input.color, 1);
-    output.normal = float4(input.color.xy, 0, 1);
+    output.normal = float4(input.normal, 1);
     output.xyz = float4(input.xyz, 1);
     output.id = input.id;
 
@@ -270,21 +291,32 @@ float4 composite_fragment_main(float2 uv : SV_Position) : SV_Target0 {
 
     float3 frag_xyz = color_textures[2].Load(coord).xyz;
 
-    float4x4 light_transform = mul(g_bindless.get_proj_matrix(),
-       g_bindless.get_light(0).transform);
+    // Shadow mapping:
+        float4x4 light_transform = mul(g_bindless.get_proj_matrix(),
+        g_bindless.get_light(0).transform);
 
-    float4x4 m = {
-        0.5f,    0, 0, 0.5f,
-           0, 0.5f, 0, 0.5f,
-           0,    0, 1,    0,
-           0,    0, 0,    1
-    };
-    light_transform = mul(m, light_transform);
+        float4x4 m = {
+            0.5f,    0, 0, 0.5f,
+               0, 0.5f, 0, 0.5f,
+               0,    0, 1,    0,
+               0,    0, 0,    1
+        };
+        light_transform = mul(m, light_transform);
 
-    float4 light_space_vert = mul(light_transform, float4(frag_xyz, 1));
-    float3 light_map_coord = light_space_vert.xyz / light_space_vert.w;
-    float light = light_maps[0].Sample(light_map_coord.xy)
-        < light_map_coord.z - 0.00001f ? 0.15f : 1.f;
+        float4 light_space_vert = mul(light_transform, float4(frag_xyz, 1));
+        float3 light_map_coord = light_space_vert.xyz / light_space_vert.w;
+        // TODO: Move bias into rasterization state.
+        float light = light_maps[0].Sample(light_map_coord.xy)
+            < light_map_coord.z - 0.00001f ? 0.15f : 1.f;
+
+    // float4x4 view = g_bindless.get_view_matrix();
+    // float4x4 proj = g_bindless.get_proj_matrix();
+    // float4x4 view_proj = mul(proj, view);
+
+    // float4 foo = mul(view_proj, float4(frag_xyz,1));
+    // float3 light   = normalize(g_bindless.get_light(0).position - foo.xyz);
+    // float3 eye     = normalize(-frag_xyz);
+    // float3 halfway = normalize(light + eye);
 
     // Left adjacency.
     if (x > 0) {
