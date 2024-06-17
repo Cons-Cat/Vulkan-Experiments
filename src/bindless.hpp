@@ -199,6 +199,15 @@ class buffer_storage {
         return get_at<member_type>(member_stride * 7z);
     }
 
+    void set_camera_position(glm::vec3 position) {
+        set_at(position, cameras_offset - 16);
+    }
+
+    [[nodiscard]]
+    auto get_camera_position() const -> glm::vec3 const& {
+        return get_at<glm::vec3>(cameras_offset - 16);
+    }
+
     // Camera getters/setters.
     void set_view_matrix(glm::mat4x4 matrix) {
         set_at(matrix, cameras_offset);

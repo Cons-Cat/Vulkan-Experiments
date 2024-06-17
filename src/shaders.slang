@@ -106,6 +106,15 @@ struct buffer_storage {
     }
 
     [mutating]
+    void set_camera_position(float3 position) {
+        return set_at<float3>(position, cameras_offset - 16);
+    }
+
+    float3 get_camera_position() {
+        return get_at<float3>(cameras_offset - 16);
+    }
+
+    [mutating]
     void set_view_matrix(float4x4 mat) {
         return set_at<float4x4>(mat, cameras_offset);
     }
@@ -309,25 +318,32 @@ float4 composite_fragment_main(float2 uv : SV_Position) : SV_Target0 {
 
     float ambient_light = 0.15f;
 
-    float4 light_space_vert = mul(light_transform, float4(frag_xyz, 1));
-    float3 light_map_coord = light_space_vert.xyz / light_space_vert.w;
-    // TODO: Move bias into rasterization state.
-    float light = light_maps[0].Sample(light_map_coord.xy)
-        < light_map_coord.z - 0.00001f ? ambient_light : 1.f;
-
     let light_source = g_bindless.get_light(0);
     // let light_position = mul(g_bindless.get_proj_matrix(), float4(light_source.position, 1));
     // float4 proj_position = mul(g_bindless.get_viewproj(), float4(frag_xyz,1));
 
     float3 to_light = light_source.position - frag_xyz;
-    // float3 eye     = normalize(-frag_xyz);
-    // float3 halfway = normalize(to_light + eye);
-
+    float3 to_camera     = normalize(g_bindless.get_camera_position() - frag_xyz);
+    float3 halfway = normalize(to_light + to_camera);
+    
     float3 to_light_unitv = normalize(to_light);
-    // float3 eye_direction       = normalize(-frag_xyz);
-    // float3 reflected_direction = normalize(-reflect(to_light_unitv, frag_normal));
+    float3 reflected_light = normalize(-reflect(to_light_unitv, frag_normal));
 
+    float4 light_space_vert = mul(light_transform, float4(frag_xyz, 1));
+    float3 light_map_coord = light_space_vert.xyz / light_space_vert.w;
+    // TODO: Move bias into rasterization state.
+    float light = light_maps[0].Sample(light_map_coord.xy)
+        < light_map_coord.z ? ambient_light : 1.f;
     light = min(light, clamp(dot(frag_normal, to_light_unitv), ambient_light, 1));
+
+    if (light > ambient_light) {
+        // If not in shadow, add specular highlights.
+        float specular_intensity = max(dot(reflected_light, to_camera), 0);
+        float specular_hardness = 8.f;
+        float specular = pow(specular_intensity, specular_hardness);
+
+        light += specular;
+    }
 
     // Left adjacency.
     if (x > 0) {

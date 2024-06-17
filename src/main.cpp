@@ -192,6 +192,7 @@ auto main() -> int {
         // Update camera.
         glm::mat4x4 const view = g_camera.make_view_matrix();
         g_bindless_data.set_view_matrix(view);
+        g_bindless_data.set_camera_position(g_camera.position);
 
         // Add cubes and planes to be rendered.
         g_bindless_data.push_mesh(g_cube_mesh);

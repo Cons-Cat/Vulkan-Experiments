@@ -230,8 +230,6 @@ constexpr float depth_bias_slope = 0.25f;
 
 void set_all_render_state(vk::CommandBuffer cmd) {
     cmd.setLineWidth(1.0);
-    // TODO: Re-enable back face culling after fixing plane mesh winding.
-    cmd.setCullMode(vk::CullModeFlagBits::eBack);
     cmd.setPolygonModeEXT(vk::PolygonMode::eFill);
     vk::ColorBlendEquationEXT color_blend_equations[3]{};
     cmd.setColorBlendEquationEXT(3, color_blend_equations);
@@ -359,6 +357,7 @@ void record_rendering(vk::CommandBuffer& cmd) {
     vk::Rect2D render_area;
     render_area.setOffset({0, 0}).setExtent({game_width, game_height});
 
+    cmd.setCullMode(vk::CullModeFlagBits::eBack);
     cmd.setViewportWithCount(1, &viewport);
     cmd.setScissorWithCount(1, &scissor);
 
@@ -468,6 +467,7 @@ void record_light(vk::CommandBuffer& cmd) {
     vk::Rect2D render_area;
     render_area.setOffset({0, 0}).setExtent({game_width, game_height});
 
+    cmd.setCullMode(vk::CullModeFlagBits::eFront);
     cmd.setViewportWithCount(1, &viewport);
     cmd.setScissorWithCount(1, &scissor);
 
@@ -529,6 +529,7 @@ void record_compositing(vk::CommandBuffer& cmd, std::size_t frame) {
     }
 
     // The hard-coded compositing triangle does not require depth-testing.
+    cmd.setCullMode(vk::CullModeFlagBits::eBack);
     cmd.setDepthTestEnable(vk::False);
     cmd.setDepthWriteEnable(vk::False);
 
