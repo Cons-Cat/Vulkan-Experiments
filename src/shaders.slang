@@ -125,6 +125,10 @@ struct buffer_storage {
         return get_at<float4x4>(cameras_offset + sizeof(float4x4));
     }
 
+    float4x4 get_viewproj_matrix() {
+        return mul(get_proj_matrix(), get_view_matrix());
+    }
+
     [vk::binding(0, 0)]
     RWByteAddressBuffer buffer;
 };
@@ -215,7 +219,8 @@ vs_out demo_vertex_main(in vs_in vert,
 
     float3 color = colors[invocation_index % 3];
 
-    normal = normalize(mul(view_proj, float4(normal, 1)).xyz);
+    //normal = normalize(mul(view_proj, float4(normal, 1)).xyz);
+    //normal = normalize(mul(view, float4(normal, 1)).xyz);
 
 #ifdef is_camera
     return {out_pos, normal, xyz, color, vert.id};
@@ -290,33 +295,45 @@ float4 composite_fragment_main(float2 uv : SV_Position) : SV_Target0 {
     float depth = depth_texture[4].Load(coord);
 
     float3 frag_xyz = color_textures[2].Load(coord).xyz;
+    float3 frag_normal = color_textures[1].Load(coord).xyz;
 
     // Shadow mapping:
-        float4x4 light_transform = mul(g_bindless.get_proj_matrix(),
-        g_bindless.get_light(0).transform);
+    float4x4 light_transform = mul(g_bindless.get_proj_matrix(),
+    g_bindless.get_light(0).transform);
 
-        float4x4 m = {
-            0.5f,    0, 0, 0.5f,
-               0, 0.5f, 0, 0.5f,
-               0,    0, 1,    0,
-               0,    0, 0,    1
-        };
-        light_transform = mul(m, light_transform);
+    float4x4 m = {
+        0.5f,    0, 0, 0.5f,
+           0, 0.5f, 0, 0.5f,
+           0,    0, 1,    0,
+           0,    0, 0,    1
+    };
+    light_transform = mul(m, light_transform);
 
-        float4 light_space_vert = mul(light_transform, float4(frag_xyz, 1));
-        float3 light_map_coord = light_space_vert.xyz / light_space_vert.w;
-        // TODO: Move bias into rasterization state.
-        float light = light_maps[0].Sample(light_map_coord.xy)
-            < light_map_coord.z - 0.00001f ? 0.15f : 1.f;
+    float ambient_light = 0.15f;
+
+    float4 light_space_vert = mul(light_transform, float4(frag_xyz, 1));
+    float3 light_map_coord = light_space_vert.xyz / light_space_vert.w;
+    // TODO: Move bias into rasterization state.
+    float light = light_maps[0].Sample(light_map_coord.xy)
+        < light_map_coord.z - 0.00001f ? ambient_light : 1.f;
 
     // float4x4 view = g_bindless.get_view_matrix();
     // float4x4 proj = g_bindless.get_proj_matrix();
     // float4x4 view_proj = mul(proj, view);
 
-    // float4 foo = mul(view_proj, float4(frag_xyz,1));
-    // float3 light   = normalize(g_bindless.get_light(0).position - foo.xyz);
+    let light_source = g_bindless.get_light(0);
+    // let light_position = mul(g_bindless.get_proj_matrix(), float4(light_source.position, 1));
+    // float4 proj_position = mul(g_bindless.get_viewproj(), float4(frag_xyz,1));
+
+    float3 to_light = light_source.position - frag_xyz;
     // float3 eye     = normalize(-frag_xyz);
-    // float3 halfway = normalize(light + eye);
+    // float3 halfway = normalize(to_light + eye);
+
+    float3 to_light_unitv = normalize(to_light);
+    // float3 eye_direction       = normalize(-frag_xyz);
+    // float3 reflected_direction = normalize(-reflect(to_light_unitv, frag_normal));
+
+    light = min(light, clamp(dot(frag_normal, to_light_unitv), ambient_light, 1));
 
     // Left adjacency.
     if (x > 0) {
@@ -343,6 +360,8 @@ float4 composite_fragment_main(float2 uv : SV_Position) : SV_Target0 {
         return float4(1, 1, 1, 1);
     }
 
-    float3 color = color_textures[0].Load(uint3(uint(uv.x), uint(uv.y), 0)).rgb;
-    return float4(color * light, 1);
+    float3 color = color_textures[0].Load(coord).rgb;
+    if (self != 0) { color *= light; }
+    
+    return float4(color, 1);
 }
