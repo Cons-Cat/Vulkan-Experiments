@@ -225,6 +225,9 @@ void render_and_present() {
     frame = (frame + 1) % max_frames_in_flight;
 }
 
+constexpr float depth_bias_constant = 0.0f;
+constexpr float depth_bias_slope = 0.25f;
+
 void set_all_render_state(vk::CommandBuffer cmd) {
     cmd.setLineWidth(1.0);
     // TODO: Re-enable back face culling after fixing plane mesh winding.
@@ -301,7 +304,8 @@ void set_all_render_state(vk::CommandBuffer cmd) {
     cmd.setDepthClampEnableEXT(vk::False);
     cmd.setDepthClipEnableEXT(vk::False);
 
-    cmd.setDepthBiasEnable(vk::False);
+    cmd.setDepthBiasEnable(vk::True);
+    cmd.setDepthBias(depth_bias_constant, 0, depth_bias_slope);
     cmd.setDepthTestEnable(vk::True);
     cmd.setDepthWriteEnable(vk::True);
     cmd.setDepthBoundsTestEnable(vk::False);

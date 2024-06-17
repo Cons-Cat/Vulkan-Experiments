@@ -317,10 +317,6 @@ float4 composite_fragment_main(float2 uv : SV_Position) : SV_Target0 {
     float light = light_maps[0].Sample(light_map_coord.xy)
         < light_map_coord.z - 0.00001f ? ambient_light : 1.f;
 
-    // float4x4 view = g_bindless.get_view_matrix();
-    // float4x4 proj = g_bindless.get_proj_matrix();
-    // float4x4 view_proj = mul(proj, view);
-
     let light_source = g_bindless.get_light(0);
     // let light_position = mul(g_bindless.get_proj_matrix(), float4(light_source.position, 1));
     // float4 proj_position = mul(g_bindless.get_viewproj(), float4(frag_xyz,1));
