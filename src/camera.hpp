@@ -30,4 +30,4 @@ struct camera_t {
     void update();
 };
 
-inline camera_t g_camera{};
+inline constinit camera_t g_camera{};

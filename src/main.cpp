@@ -150,12 +150,9 @@ auto main() -> int {
 
     // Push a light into the scene.
     glm::mat4x4 light_transform = glm::identity<glm::mat4x4>();
-    glm::vec3 light_position = {3, -2, 3};
-    light_transform = glm::rotate(light_transform, -45.f, {.5f, -.5f, 0});
-    light_transform = glm::translate(light_transform, light_position);
+    glm::vec3 light_position = {3, 2, 3};
     light_transform =
-        glm::lookAt(glm::vec3{2.5f, 2.f, 2.f}, glm::vec3{0.f, 0.f, 0.f},
-                    glm::vec3{0.f, 1.f, 0.f});
+        glm::lookAt(light_position, {0.f, 0.f, 0.f}, {0.f, 1.f, 0.f});
 
     g_lights.push_back({light_transform, projection_matrix, light_position});
 
@@ -204,7 +201,7 @@ auto main() -> int {
         rotation += 0.05f;
 
         glm::mat4x4 a = glm::identity<glm::mat4x4>();
-        a = glm::translate(a, {-0.5f, -0.5f, -0.5f});
+        a = glm::translate(a, {-0.5f, 0.5f, -0.5f});
         a = glm::rotate(a, -rotation, {1, 1, 1});
 
         glm::mat4x4 b = glm::identity<glm::mat4x4>();

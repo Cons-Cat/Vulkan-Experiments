@@ -228,7 +228,7 @@ void render_and_present() {
 void set_all_render_state(vk::CommandBuffer cmd) {
     cmd.setLineWidth(1.0);
     // TODO: Re-enable back face culling after fixing plane mesh winding.
-    cmd.setCullMode(vk::CullModeFlagBits::eNone);
+    cmd.setCullMode(vk::CullModeFlagBits::eBack);
     cmd.setPolygonModeEXT(vk::PolygonMode::eFill);
     vk::ColorBlendEquationEXT color_blend_equations[3]{};
     cmd.setColorBlendEquationEXT(3, color_blend_equations);
