@@ -4,7 +4,7 @@ struct light {
     float3 position;
 };
 
-struct per_vertex {
+struct vertex {
     float4 position;
     float3 normal;
 };
@@ -25,8 +25,8 @@ struct buffer_storage {
         return buffer.Load<T>(byte_offset);
     }
 
-    per_vertex get_vertex(uint index) {
-        return get_at<per_vertex>(vertices_offset + (index * sizeof(per_vertex)));
+    vertex get_vertex(uint index) {
+        return get_at<vertex>(vertices_offset + (index * sizeof(vertex)));
     }
 
     uint get_index(uint index) {
@@ -37,7 +37,6 @@ struct buffer_storage {
         return get_at<light>(get_lights_offset() + (index * sizeof(light)));
     }
 
-    
     float4x4 get_viewproj() {
         return mul(get_proj_matrix(), get_view_matrix());
     }
@@ -87,7 +86,6 @@ struct buffer_storage {
     uint get_instance_offset() {
         return get_at<member_type>(member_stride * 5);
     }
-    
 
     [mutating]
     void set_properties_offset(uint index, member_type new_offset) {
@@ -97,7 +95,7 @@ struct buffer_storage {
     uint get_properties_offset() {
         return get_at<member_type>(member_stride * 6);
     }
-    
+
     [mutating]
     void set_lights_offset(uint index, member_type new_offset) {
         return set_at<member_type>(member_stride * 7, new_offset);
@@ -106,7 +104,7 @@ struct buffer_storage {
     uint get_lights_offset() {
         return get_at<member_type>(member_stride * 7);
     }
-    
+
     [mutating]
     void set_view_matrix(float4x4 mat) {
         return set_at<float4x4>(mat, cameras_offset);
