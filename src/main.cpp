@@ -203,24 +203,26 @@ auto main() -> int {
 
         glm::mat4x4 a = glm::identity<glm::mat4x4>();
         a = glm::translate(a, {-0.5f, 0.5f, -0.5f});
-        a = glm::rotate(a, -rotation, {1, 1, 1});
 
         glm::mat4x4 b = glm::identity<glm::mat4x4>();
-        b = glm::rotate(b, rotation, {1, 1, 1});
 
+        // The braced initializers get formatted incorrectly here.
+        // clang-format off
         mesh_instance const cube_inst1 = {
             .position = {-1, 0, 0},
-            .rotation = glm::toQuat(a),
+            .rotation = glm::toQuat(glm::rotate(a, -rotation, {1, 1, 1}
+              )),
             .index_count =
                 static_cast<index_type>(g_cube_mesh.m_indices.size()),
         };
 
         mesh_instance const cube_inst2 = {
             .position = {1, 0.15f, 0.5f},
-            .rotation = glm::toQuat(b),
+            .rotation = glm::toQuat(glm::rotate(a, rotation, {1, 1, 1})),
             .index_count =
                 static_cast<index_type>(g_cube_mesh.m_indices.size()),
         };
+        // clang-format on
 
         mesh_instance const plane_inst = {
             .position = {0.f, -0.75f, 0.f},
