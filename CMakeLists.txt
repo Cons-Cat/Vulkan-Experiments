@@ -34,10 +34,12 @@ target_compile_options(game PRIVATE
   -fno-omit-frame-pointer # Required for UBsan.
 
   -fsanitize=undefined
-  
+
   # Nsight Graphics gets confused by asan.
   #-fsanitize=address
 
+  -fdebug-info-for-profiling
+  -fdebug-macro
   -ggdb3 -pipe
 )
 
