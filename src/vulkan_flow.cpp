@@ -18,6 +18,7 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     vkb::PhysicalDeviceSelector physical_device_selector(instance);
     physical_device_selector.add_required_extension("VK_KHR_dynamic_rendering")
         .add_required_extension("VK_EXT_shader_object")
+        .add_required_extension("VK_EXT_depth_clip_enable")
         .add_required_extension("VK_KHR_buffer_device_address")
         .set_required_features(vulkan_1_0_features)
         .set_required_features_12(vulkan_1_2_features);
@@ -146,6 +147,7 @@ void update_descriptors() {
     if (!g_lights.light_maps.empty()) {
         // Light depth textures.
         dsu_camera.beginImages(2, 0, vk::DescriptorType::eCombinedImageSampler);
+        // Add every light-source to the light map bindings.
         for (auto&& image : g_lights.light_maps) {
             dsu_camera.image(g_nearest_neighbor_sampler, image.imageView(),
                              vk::ImageLayout::eDepthReadOnlyOptimal);
@@ -228,6 +230,7 @@ void render_and_present() {
 constexpr float depth_bias_constant = 0.0f;
 constexpr float depth_bias_slope = 0.25f;
 
+// TODO: Pre-record these once, before rendering frames.
 void set_all_render_state(vk::CommandBuffer cmd) {
     cmd.setLineWidth(1.0);
     cmd.setPolygonModeEXT(vk::PolygonMode::eFill);
@@ -344,6 +347,33 @@ constexpr vk::ClearColorValue clear_color = {1.f, 0.f, 1.f, 0.f};
 constexpr vk::ClearColorValue black_clear_color = {0, 0, 0, 1};
 constexpr vk::ClearColorValue depth_clear_color = {1.f, 1.f, 1.f, 1.f};
 
+void draw_meshes(vk::CommandBuffer& cmd) {
+    // TODO: Use the sized buffers so that debuggers have more info once
+    // RenderDoc supports this feature.
+    // cmd.bindVertexBuffers2(0, g_buffer.buffer(),
+    //                        g_bindless_data.vertices_offset,
+    //                        g_bindless_data.get_vertex_count(),
+    //                        sizeof(vertex));
+
+    // cmd.bindIndexBuffer2KHR(
+    //     g_buffer.buffer(), g_bindless_data.get_index_offset(),
+    //     g_bindless_data.get_index_offset() +
+    //     g_bindless_data.get_index_count(), vk::IndexType::eUint32);
+
+    cmd.bindVertexBuffers(0, {g_buffer.buffer(), g_buffer.buffer()},
+                          {g_bindless_data.vertices_offset,
+                           g_bindless_data.get_properties_offset()});
+
+    cmd.bindIndexBuffer(g_buffer.buffer(), g_bindless_data.get_index_offset(),
+                        vk::IndexType::eUint32);
+
+    // 16 is the byte offset of the instance count into the bindless buffer.
+    cmd.drawIndexedIndirectCount(
+        g_buffer.buffer(), g_bindless_data.get_instance_commands_offset(),
+        g_buffer.buffer(), 16, g_bindless_data.get_instance_commands_count(),
+        sizeof(vk::DrawIndexedIndirectCommand));
+}
+
 void record_rendering(vk::CommandBuffer& cmd) {
     vk::Viewport viewport;
     viewport.setWidth(game_width)
@@ -426,35 +456,13 @@ void record_rendering(vk::CommandBuffer& cmd) {
     shader_objects.bind_vertex(cmd, 1);
     shader_objects.bind_fragment(cmd, 3);
 
-    // TODO: Use the sized buffers so that debuggers have more info once
-    // RenderDoc supports this feature.
-    // cmd.bindVertexBuffers2(0, g_buffer.buffer(),
-    //                        g_bindless_data.vertices_offset,
-    //                        g_bindless_data.get_vertex_count(),
-    //                        sizeof(vertex));
-
-    // cmd.bindIndexBuffer2KHR(
-    //     g_buffer.buffer(), g_bindless_data.get_index_offset(),
-    //     g_bindless_data.get_index_offset() +
-    //     g_bindless_data.get_index_count(), vk::IndexType::eUint32);
-
-    cmd.bindVertexBuffers(0, {g_buffer.buffer(), g_buffer.buffer()},
-                          {g_bindless_data.vertices_offset,
-                           g_bindless_data.get_properties_offset()});
-
-    cmd.bindIndexBuffer(g_buffer.buffer(), g_bindless_data.get_index_offset(),
-                        vk::IndexType::eUint32);
-
     // 16 is the byte offset of the instance count into the bindless buffer.
-    cmd.drawIndexedIndirectCount(
-        g_buffer.buffer(), g_bindless_data.get_instance_commands_offset(),
-        g_buffer.buffer(), 16, g_bindless_data.get_instance_commands_count(),
-        sizeof(vk::DrawIndexedIndirectCommand));
+    draw_meshes(cmd);
 
     cmd.endRendering();
 }
 
-void record_light(vk::CommandBuffer& cmd) {
+void record_lights(vk::CommandBuffer& cmd) {
     vk::Viewport viewport;
     viewport.setWidth(game_width)
         .setHeight(game_height)
@@ -471,7 +479,12 @@ void record_light(vk::CommandBuffer& cmd) {
     cmd.setViewportWithCount(1, &viewport);
     cmd.setScissorWithCount(1, &scissor);
 
-    for (auto&& image : g_lights.light_maps) {
+    // `current_light_idx` should be 32-bit, as `current_light_invocation` is in
+    // the shader.
+    for (unsigned current_light_idx = 0; current_light_idx < g_lights.size();
+         ++current_light_idx) {
+        auto& image = g_lights.light_maps[current_light_idx];
+
         vk::RenderingAttachmentInfoKHR depth_attachment_info;
         depth_attachment_info.setClearValue(depth_clear_color)
             .setImageLayout(vk::ImageLayout::eDepthAttachmentOptimal)
@@ -491,24 +504,14 @@ void record_light(vk::CommandBuffer& cmd) {
 
         set_all_render_state(cmd);
 
+        cmd.pushConstants(g_pipeline_layout, vk::ShaderStageFlagBits::eVertex,
+                          0, sizeof(current_light_idx), &current_light_idx);
+
         // Rasterizing depth for the world in view.
         shader_objects.bind_vertex(cmd, 2);
         shader_objects.bind_fragment(cmd, 3);
 
-        cmd.bindVertexBuffers(0, {g_buffer.buffer(), g_buffer.buffer()},
-                              {g_bindless_data.vertices_offset,
-                               g_bindless_data.get_properties_offset()});
-
-        cmd.bindIndexBuffer(g_buffer.buffer(),
-                            g_bindless_data.get_index_offset(),
-                            vk::IndexType::eUint32);
-
-        // 16 is the byte offset of the instance count into the bindless buffer.
-        cmd.drawIndexedIndirectCount(
-            g_buffer.buffer(), g_bindless_data.get_instance_commands_offset(),
-            g_buffer.buffer(), 16,
-            g_bindless_data.get_instance_commands_count(),
-            sizeof(vk::DrawIndexedIndirectCommand));
+        draw_meshes(cmd);
 
         cmd.endRendering();
     }
@@ -617,7 +620,7 @@ void record() {
         cmd.begin(begin_info);
 
         record_rendering(cmd);
-        record_light(cmd);
+        record_lights(cmd);
         record_compositing(cmd, i);
 
         cmd.end();

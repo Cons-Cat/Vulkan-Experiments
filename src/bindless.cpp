@@ -132,12 +132,12 @@ void buffer_storage::push_properties() {
                 m_instance_properties.size() * sizeof(property));
 
     // Push light sources.
+    set_lights_count(g_lights.size());
     set_lights_offset(static_cast<member_type>(m_data.size()));
     p_destination = m_data.data() + m_data.size();
     // Reserve storage in `m_data` for command properties.
-    m_data.resize(m_data.size() +
-                  (g_lights.transforms.size() * sizeof(lights::light)));
+    m_data.resize(m_data.size() + (g_lights.size() * sizeof(light_t::light)));
     // Bit-copy the lights into `m_data`.
-    std::memcpy(p_destination, g_lights.transforms.data(),
-                g_lights.transforms.size() * sizeof(lights::light));
+    std::memcpy(p_destination, g_lights.lights.data(),
+                g_lights.size() * sizeof(light_t::light));
 }

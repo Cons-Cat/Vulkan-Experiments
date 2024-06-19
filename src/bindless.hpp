@@ -190,13 +190,22 @@ class buffer_storage {
         return get_at<member_type>(member_stride * 6z);
     }
 
+    void set_lights_count(member_type count) {
+        set_at(count, member_stride * 7z);
+    }
+
+    [[nodiscard]]
+    auto get_lights_count() const -> member_type const& {
+        return get_at<member_type>(member_stride * 7z);
+    }
+
     void set_lights_offset(member_type offset) {
-        set_at(offset, member_stride * 7z);
+        set_at(offset, member_stride * 8z);
     }
 
     [[nodiscard]]
     auto get_lights_offset() const -> member_type const& {
-        return get_at<member_type>(member_stride * 7z);
+        return get_at<member_type>(member_stride * 8z);
     }
 
     void set_camera_position(glm::vec3 position) {

@@ -47,6 +47,11 @@ inline vk::DescriptorSetLayout g_descriptor_layout;
 inline vk::DescriptorSetLayout g_descriptor_layout_lights;
 inline vk::PipelineLayout g_pipeline_layout;
 
+// Push constants contain a 4-byte index for light rasterization passes to use
+// for indexing into their respective light source.
+inline constexpr vk::PushConstantRange g_push_constants = {
+    vk::ShaderStageFlagBits::eVertex, 0, 4};
+
 inline vkb::PhysicalDevice g_physical_device;
 // This is `optional` to defer initialization:
 inline std::optional<vkb::SwapchainBuilder> g_swapchain_builder;

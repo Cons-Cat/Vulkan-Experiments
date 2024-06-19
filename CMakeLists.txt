@@ -55,17 +55,17 @@ set(shaders ${CMAKE_SOURCE_DIR}/src/shaders.slang)
 # TODO: Use `-specialize` instead of `-D`.
 add_custom_target(shaders
   # Vertex shader for camera.
-  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/vertex_camera.spv -profile sm_6_6 -entry demo_vertex_main -O2 -Wno-39001 -emit-spirv-directly -Dis_camera
+  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/vertex_camera.spv -profile sm_6_6 -entry demo_vertex_main -O3 -Wno-39001 -emit-spirv-via-glsl -Dis_camera
   # Vertex shader for light sources.
-  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/vertex_light.spv -profile sm_6_6 -entry demo_vertex_main -O2 -Wno-39001 -emit-spirv-directly
+  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/vertex_light.spv -profile sm_6_6 -entry demo_vertex_main -O3 -Wno-39001 -emit-spirv-via-glsl
   # Fragment shader.
-  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/fragment.spv -entry demo_fragment_main -O2 -Wno-39001 -emit-spirv-directly
+  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/fragment.spv -entry demo_fragment_main -O3 -Wno-39001 -emit-spirv-via-glsl
   # Culling compute shader.
-  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/culling.spv -entry culling_main -O2 -Wno-39001 -emit-spirv-directly
+  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/culling.spv -entry culling_main -O3 -Wno-39001 -emit-spirv-via-glsl
   # Compositing triangle shader.
-  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/composite_vertex.spv -entry composite_vertex_main -O2 -Wno-39001 -emit-spirv-directly
+  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/composite_vertex.spv -entry composite_vertex_main -O3 -Wno-39001 -emit-spirv-via-glsl
   # Compositing fragment shader for deferred rendering.
-  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/composite_fragment.spv -entry composite_fragment_main -O2 -Wno-39001 -emit-spirv-directly
+  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/composite_fragment.spv -entry composite_fragment_main -O3 -Wno-39001 -emit-spirv-via-glsl
 )
 
 find_package(Vulkan REQUIRED)

@@ -111,7 +111,8 @@ auto main() -> int {
 
     vk::PipelineLayoutCreateInfo pipeline_info;
     pipeline_info.setSetLayouts(g_descriptor_layout)
-        .setFlags(vk::PipelineLayoutCreateFlags());
+        .setFlags(vk::PipelineLayoutCreateFlags())
+        .setPushConstantRanges(g_push_constants);
     g_pipeline_layout = g_device.createPipelineLayout(pipeline_info);
 
     std::vector<vk::DescriptorPoolSize> pool_sizes;
@@ -149,13 +150,21 @@ auto main() -> int {
     g_descriptor_set = dsm.create(g_device, descriptor_pool).front();
 
     // Push a light into the scene.
-    glm::mat4x4 light_transform = glm::identity<glm::mat4x4>();
-    glm::vec3 light_position = {3, 2, 3};
-    light_transform =
-        glm::lookAt(light_position, {0.f, 0.f, 0.f}, {0.f, 1.f, 0.f});
+    glm::mat4x4 light1_transform = glm::identity<glm::mat4x4>();
+    glm::mat4x4 light2_transform = glm::identity<glm::mat4x4>();
 
-    g_lights.push_back({light_transform, projection_matrix, light_position});
+    glm::vec3 light1_position = {3, 2, 3};
+    light1_transform =
+        glm::lookAt(light1_position, {0.f, 0.f, 0.f}, {0.f, 1.f, 0.f});
 
+    glm::vec3 light2_position = {-3, 2, 3};
+    light2_transform =
+        glm::lookAt(light2_position, {0.f, 0.f, 0.f}, {0.f, 1.f, 0.f});
+
+    g_lights.push_back({light1_transform, projection_matrix, light1_position});
+    g_lights.push_back({light2_transform, projection_matrix, light2_position});
+
+    // Update the descriptors because lights changed.
     update_descriptors();
 
     // Compile and link shaders.
@@ -203,8 +212,6 @@ auto main() -> int {
 
         glm::mat4x4 a = glm::identity<glm::mat4x4>();
         a = glm::translate(a, {-0.5f, 0.5f, -0.5f});
-
-        glm::mat4x4 b = glm::identity<glm::mat4x4>();
 
         // The braced initializers get formatted incorrectly here.
         // clang-format off

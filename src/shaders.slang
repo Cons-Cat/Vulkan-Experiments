@@ -34,7 +34,8 @@ struct buffer_storage {
     }
 
     light get_light(uint index) {
-        return get_at<light>(get_lights_offset() + (index * sizeof(light)));
+        // 144 is the size of `light` when accounting for padding.
+        return get_at<light>(get_lights_offset() + (index * 144));
     }
 
     float4x4 get_viewproj() {
@@ -97,12 +98,21 @@ struct buffer_storage {
     }
 
     [mutating]
+    void set_lights_count(uint index, member_type new_count) {
+        return set_at<member_type>(member_stride * 7, new_count);
+    }
+
+    uint get_lights_count() {
+        return get_at<member_type>(member_stride * 7);
+    }
+
+    [mutating]
     void set_lights_offset(uint index, member_type new_offset) {
-        return set_at<member_type>(member_stride * 7, new_offset);
+        return set_at<member_type>(member_stride * 8, new_offset);
     }
 
     uint get_lights_offset() {
-        return get_at<member_type>(member_stride * 7);
+        return get_at<member_type>(member_stride * 8);
     }
 
     [mutating]
@@ -188,46 +198,45 @@ float3 rotate_vector(float3 v, float4 r)
     return qmul(r, qmul(float4(v, 0), r_c)).xyz;
 }
 
+[[vk::push_constant]] uint current_light_invocation;
+
 [shader("vertex")]
 vs_out demo_vertex_main(in vs_in vert,
                         in uint invocation_index : SV_VertexID,
                         in uint instance_index : SV_InstanceID) {
     // TODO: Use constant generics rather than the preprocessor for this.
-    // Bring vertex into projection space:
+
     // `is_camera` is defined in `../CMakeLists.txt`
 #ifdef is_camera
+    float3 colors[3] = {
+        float3 (1.0, 0.0, 0.0), float3 (0.0, 1.0, 0.0), float3 (0.0, 0.0, 1.0),
+    };
+    float3 color = colors[invocation_index % 3];
+
     float4x4 view = g_bindless.get_view_matrix();
 #else
-    float4x4 view = g_bindless.get_light(0).transform;
+    float4x4 view = g_bindless.get_light(current_light_invocation).transform;
 #endif
 
     // TODO: Support per-light projections.
     float4x4 proj = g_bindless.get_proj_matrix();
     float4x4 view_proj = mul(proj, view);
 
+    // Bring vertex into projection space:
     float4 out_pos = vert.model_pos;
     out_pos.xyz *= vert.instance_scale;
     float3 normal = vert.normal;
-    
+
     // If no rotation is provided, the quaternion is 0.
     if (vert.instance_rot.w != 0) {
         out_pos.xyz = rotate_vector(out_pos.xyz, vert.instance_rot);
         normal = rotate_vector(normal, vert.instance_rot);
     }
     out_pos.xyz += vert.instance_pos;
-    
+
     float3 xyz = out_pos.xyz;
 
     out_pos = mul(view_proj, out_pos);
-
-    float3 colors[3] = {
-        float3 (1.0, 0.0, 0.0), float3 (0.0, 1.0, 0.0), float3 (0.0, 0.0, 1.0),
-    };
-
-    float3 color = colors[invocation_index % 3];
-
-    //normal = normalize(mul(view_proj, float4(normal, 1)).xyz);
-    //normal = normalize(mul(view, float4(normal, 1)).xyz);
 
 #ifdef is_camera
     return {out_pos, normal, xyz, color, vert.id};
@@ -243,9 +252,10 @@ struct frag_out {
     uint id : SV_Target3;
 };
 
+// TODO: Make a proper pass-through light map shader.
 [shader("fragment")]
 frag_out demo_fragment_main(in vs_out input) {
-    frag_out output = {};
+    frag_out output;
     output.color = float4(input.color, 1);
     output.normal = float4(input.normal, 1);
     output.xyz = float4(input.xyz, 1);
@@ -282,10 +292,10 @@ float4 composite_vertex_main(uint vertex : SV_VertexID)
     return color;
 }
 
-uint test_adjacency(uint3 coord, uint self, float depth) {
+uint test_adjacency(uint3 coord, uint frag_id, float depth) {
     if (depth_texture[4].Load(coord) > depth) {
         uint other = id_texture[3].Load(coord);
-        return self != other;
+        return frag_id != other;
     }
     return 0;
 }
@@ -296,7 +306,7 @@ float4 composite_fragment_main(float2 uv : SV_Position) : SV_Target0 {
     const uint y = uint(uv.y);
     const uint3 coord = uint3(x, y, 0);
 
-    uint self = id_texture[3].Load(coord);
+    uint frag_id = id_texture[3].Load(coord);
 
     uint adjacencies = 0;
     float depth = depth_texture[4].Load(coord);
@@ -304,65 +314,75 @@ float4 composite_fragment_main(float2 uv : SV_Position) : SV_Target0 {
     float3 frag_xyz = color_textures[2].Load(coord).xyz;
     float3 frag_normal = color_textures[1].Load(coord).xyz;
 
-    // Shadow mapping:
-    float4x4 light_transform = mul(g_bindless.get_proj_matrix(),
-    g_bindless.get_light(0).transform);
+    const float ambient_light = 0.15f;
 
-    float4x4 m = {
+    const float4x4 to_screen_matrix = {
         0.5f,    0, 0, 0.5f,
            0, 0.5f, 0, 0.5f,
            0,    0, 1,    0,
            0,    0, 0,    1
     };
-    light_transform = mul(m, light_transform);
 
-    float ambient_light = 0.15f;
-
-    let light_source = g_bindless.get_light(0);
-    // let light_position = mul(g_bindless.get_proj_matrix(), float4(light_source.position, 1));
-    // float4 proj_position = mul(g_bindless.get_viewproj(), float4(frag_xyz,1));
-
-    float3 to_light = light_source.position - frag_xyz;
-    float3 to_camera     = normalize(g_bindless.get_camera_position() - frag_xyz);
-    float3 halfway = normalize(to_light + to_camera);
+    float frag_light = ambient_light;
     
-    float3 to_light_unitv = normalize(to_light);
-    float3 reflected_light = normalize(-reflect(to_light_unitv, frag_normal));
+    for (uint i = 0; i < g_bindless.get_lights_count(); ++i) {
+        let light_source = g_bindless.get_light(i);
 
-    float4 light_space_vert = mul(light_transform, float4(frag_xyz, 1));
-    float3 light_map_coord = light_space_vert.xyz / light_space_vert.w;
-    // TODO: Move bias into rasterization state.
-    float light = light_maps[0].Sample(light_map_coord.xy)
-        < light_map_coord.z ? ambient_light : 1.f;
-    light = min(light, clamp(dot(frag_normal, to_light_unitv), ambient_light, 1));
+        // Shadow mapping:
+        float4x4 light_transform =
+            mul(g_bindless.get_proj_matrix(), light_source.transform);
+        light_transform = mul(to_screen_matrix, light_transform);
 
-    if (light > ambient_light) {
-        // If not in shadow, add specular highlights.
-        float specular_intensity = max(dot(reflected_light, to_camera), 0);
-        float specular_hardness = 8.f;
-        float specular = pow(specular_intensity, specular_hardness);
+        float4 light_space_vert = mul(light_transform, float4(frag_xyz, 1));
+        float3 light_map_coord = light_space_vert.xyz / light_space_vert.w;
+        frag_light = light_maps[i].Sample(light_map_coord.xy)
+            < light_map_coord.z ? ambient_light : 1.f;
 
-        light += specular;
+        // if (frag_light == 0) {
+        //     // If this fragment is not in view of the spot light, ignore it.
+        //     continue;
+        // }
+
+        // Specularity.
+        float3 to_light = light_source.position - frag_xyz;
+        float3 to_camera = normalize(g_bindless.get_camera_position() - frag_xyz);
+        float3 halfway = normalize(to_light + to_camera);
+
+        float3 to_light_unitv = normalize(to_light);
+        float3 reflected_light = normalize(-reflect(to_light_unitv, frag_normal));
+
+        // Only mix specular highlights for fragments not in shadow.
+        frag_light = min(frag_light,
+            clamp(dot(frag_normal, to_light_unitv), ambient_light, 1));
+
+        if (frag_light > ambient_light) {
+            // If not in shadow, add specular highlights.
+            float specular_intensity = max(dot(reflected_light, to_camera), 0);
+            float specular_softness = 8.f;
+            float specular = pow(specular_intensity, specular_softness);
+
+            frag_light += specular;
+        }
     }
 
     // Left adjacency.
     if (x > 0) {
-        adjacencies += test_adjacency({x - 1, y, 0}, self, depth);
+        adjacencies += test_adjacency({x - 1, y, 0}, frag_id, depth);
     }
 
     // Right adjacency.
     if (x < 480) {
-        adjacencies += test_adjacency({x + 1, y, 0}, self, depth);
+        adjacencies += test_adjacency({x + 1, y, 0}, frag_id, depth);
     }
     
     // Top adjacency.
     if (y > 0) {
-        adjacencies += test_adjacency({x, y - 1, 0}, self, depth);
+        adjacencies += test_adjacency({x, y - 1, 0}, frag_id, depth);
     }
     
     // Bottom adjacency.
     if (y < 320) {
-        adjacencies += test_adjacency({x, y + 1, 0}, self, depth);
+        adjacencies += test_adjacency({x, y + 1, 0}, frag_id, depth);
     }
     
     // Draw a solid white outline.
@@ -371,7 +391,7 @@ float4 composite_fragment_main(float2 uv : SV_Position) : SV_Target0 {
     }
 
     float3 color = color_textures[0].Load(coord).rgb;
-    if (self != 0) { color *= light; }
+    if (frag_id != 0) { color *= frag_light; }
     
     return float4(color, 1);
 }

@@ -40,7 +40,8 @@ struct shader_objects_t {
                 .setPName("main")
                 .setCodeSize(spirv_source.size())
                 .setPCode(spirv_source.data())
-                .setSetLayouts(g_descriptor_layout);
+                .setSetLayouts(g_descriptor_layout)
+                .setPushConstantRanges(g_push_constants);
 
         VkShaderEXT p_shader;
 
