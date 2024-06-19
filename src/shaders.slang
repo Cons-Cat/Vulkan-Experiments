@@ -335,10 +335,12 @@ float4 composite_fragment_main(float2 uv : SV_Position) : SV_Target0 {
 
         float4 light_space_vert = mul(light_transform, float4(frag_xyz, 1));
         float3 light_map_coord = light_space_vert.xyz / light_space_vert.w;
-        frag_light = light_maps[i].Sample(light_map_coord.xy)
+
+        float this_light;
+        this_light = light_maps[i].Sample(light_map_coord.xy)
             < light_map_coord.z ? ambient_light : 1.f;
 
-        // if (frag_light == 0) {
+        // if (this_light == 0) {
         //     // If this fragment is not in view of the spot light, ignore it.
         //     continue;
         // }
@@ -352,16 +354,19 @@ float4 composite_fragment_main(float2 uv : SV_Position) : SV_Target0 {
         float3 reflected_light = normalize(-reflect(to_light_unitv, frag_normal));
 
         // Only mix specular highlights for fragments not in shadow.
-        frag_light = min(frag_light,
+        this_light = min(this_light,
             clamp(dot(frag_normal, to_light_unitv), ambient_light, 1));
 
-        if (frag_light > ambient_light) {
+        if (this_light > ambient_light) {
             // If not in shadow, add specular highlights.
             float specular_intensity = max(dot(reflected_light, to_camera), 0);
             float specular_softness = 8.f;
             float specular = pow(specular_intensity, specular_softness);
 
-            frag_light += specular;
+            this_light += specular;
+
+            // Mix all lights together.
+            frag_light += this_light;
         }
     }
 
