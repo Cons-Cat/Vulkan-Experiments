@@ -56,6 +56,8 @@ auto main() -> int {
         g_device.destroyCommandPool(g_command_pool);
     };
 
+    create_command_buffers();
+
     g_color_image = vku::ColorAttachmentImage(
         g_device, g_physical_device.memory_properties, game_width, game_height,
         vk::Format::eR32G32B32A32Sfloat);
@@ -81,18 +83,16 @@ auto main() -> int {
 
     create_sync_objects();
     defer {
-        for (auto& semaphore : g_finished_semaphore) {
+        for (auto&& semaphore : g_finished_semaphore) {
             g_device.destroySemaphore(semaphore);
         }
-        for (auto& semaphore : g_available_semaphores) {
+        for (auto&& semaphore : g_available_semaphores) {
             g_device.destroySemaphore(semaphore);
         }
-        for (auto& fence : g_in_flight_fences) {
+        for (auto&& fence : g_in_flight_fences) {
             g_device.destroyFence(fence);
         }
     };
-
-    create_command_buffers();
 
     vku::DescriptorSetLayoutMaker dslm;
     g_descriptor_layout =
@@ -250,8 +250,8 @@ auto main() -> int {
                         g_command_pool, g_graphics_queue,
                         g_bindless_data.data(), g_bindless_data.capacity());
 
-        std::int16_t width;
-        std::int16_t height;
+        short width;
+        short height;
         win.GetWinSize(width, height);
         g_screen_width = static_cast<std::uint32_t>(width);
         g_screen_height = static_cast<std::uint32_t>(height);

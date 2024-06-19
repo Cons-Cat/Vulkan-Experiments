@@ -324,7 +324,7 @@ float4 composite_fragment_main(float2 uv : SV_Position) : SV_Target0 {
     };
 
     float frag_light = ambient_light;
-    
+
     for (uint i = 0; i < g_bindless.get_lights_count(); ++i) {
         let light_source = g_bindless.get_light(i);
 
@@ -340,10 +340,10 @@ float4 composite_fragment_main(float2 uv : SV_Position) : SV_Target0 {
         this_light = light_maps[i].Sample(light_map_coord.xy)
             < light_map_coord.z ? ambient_light : 1.f;
 
-        // if (this_light == 0) {
-        //     // If this fragment is not in view of the spot light, ignore it.
-        //     continue;
-        // }
+        if (this_light == 0) {
+            // If this fragment is not in view of the spot light, ignore it completely.
+            continue;
+        }
 
         // Specularity.
         float3 to_light = light_source.position - frag_xyz;

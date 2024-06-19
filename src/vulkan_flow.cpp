@@ -72,8 +72,6 @@ void create_first_swapchain() {
         std::quick_exit(1);
     }
 
-    // Destroy the old swapchain if it exists, and create a new one.
-    // vkb::destroy_swapchain(g_swapchain);
     g_swapchain = *maybe_swapchain;
     g_swapchain_images = *g_swapchain.get_images();
     g_swapchain_views = *g_swapchain.get_image_views();
@@ -81,8 +79,8 @@ void create_first_swapchain() {
 
 void create_command_pool() {
     vk::CommandPoolCreateInfo pool_info = {};
-    pool_info.queueFamilyIndex = g_graphics_queue_index;
-    pool_info.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
+    pool_info.setQueueFamilyIndex(g_graphics_queue_index)
+        .setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
 
     g_command_pool = g_device.createCommandPool(pool_info);
 }
@@ -158,9 +156,9 @@ void update_descriptors() {
     assert(dsu_camera.ok());
 }
 
-void render_and_present() {
-    static uint32_t frame = 0;
+constinit unsigned frame = 0;
 
+void render_and_present() {
     constexpr auto timeout = std::numeric_limits<uint64_t>::max();
 
     // Wait for host to signal the fence for this swapchain frame.
@@ -168,7 +166,7 @@ void render_and_present() {
                          timeout);
 
     // Get a swapchain index that is currently presentable.
-    uint32_t image_index;
+    unsigned image_index;
     auto error = static_cast<vk::Result>(vulk.vkAcquireNextImageKHR(
         g_device, g_swapchain.swapchain, timeout, g_available_semaphores[frame],
         nullptr, &image_index));
@@ -203,10 +201,8 @@ void render_and_present() {
         .setPCommandBuffers(&g_command_buffers[image_index])
         .setSignalSemaphores(signal_semaphores);
 
-    vulk.vkResetFences(g_device, 1, &g_in_flight_fences[frame]);
-
-    vulk.vkQueueSubmit(g_graphics_queue, 1, (VkSubmitInfo*)&submit_info,
-                       g_in_flight_fences[frame]);
+    g_device.resetFences({g_in_flight_fences[frame]});
+    g_graphics_queue.submit(submit_info, g_in_flight_fences[frame]);
 
     // After rendering to the swapchain frame completes, present it to the
     // surface.
@@ -217,10 +213,10 @@ void render_and_present() {
         .setWaitSemaphores(signal_semaphores)
         .setSwapchains(swapchains);
 
-    error = (vk::Result)vulk.vkQueuePresentKHR(
-        g_present_queue, (VkPresentInfoKHR*)&present_info);
+    error = g_graphics_queue.presentKHR(present_info);
     if (error == vk::Result::eErrorOutOfDateKHR) {
         recreate_swapchain();
+        // TODO: Re-render buffer or blit to presentation surface again.
         return;
     }
 
@@ -479,8 +475,8 @@ void record_lights(vk::CommandBuffer& cmd) {
     cmd.setViewportWithCount(1, &viewport);
     cmd.setScissorWithCount(1, &scissor);
 
-    // `current_light_idx` should be 32-bit, as `current_light_invocation` is in
-    // the shader.
+    // `current_light_idx` should be 32-bit, as `current_light_invocation`
+    // is in the shader.
     for (unsigned current_light_idx = 0; current_light_idx < g_lights.size();
          ++current_light_idx) {
         auto& image = g_lights.light_maps[current_light_idx];
@@ -614,7 +610,7 @@ void record_compositing(vk::CommandBuffer& cmd, std::size_t frame) {
 }
 
 void record() {
-    for (std::size_t i = 0; i < g_command_buffers.size(); ++i) {
+    for (std::size_t i = 0; i < max_frames_in_flight; ++i) {
         vk::CommandBuffer& cmd = g_command_buffers[i];
         vk::CommandBufferBeginInfo begin_info;
         cmd.begin(begin_info);
