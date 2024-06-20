@@ -158,7 +158,7 @@ void update_descriptors() {
 
 constinit unsigned frame = 0;
 
-void render_and_present() {
+auto render_and_present() -> bool {
     constexpr auto timeout = std::numeric_limits<uint64_t>::max();
 
     // Wait for host to signal the fence for this swapchain frame.
@@ -173,7 +173,7 @@ void render_and_present() {
 
     if (error == vk::Result::eErrorOutOfDateKHR) {
         recreate_swapchain();
-        return;
+        return false;
     }
 
     if (g_image_in_flight[image_index] != nullptr) {
@@ -216,11 +216,17 @@ void render_and_present() {
     error = g_graphics_queue.presentKHR(present_info);
     if (error == vk::Result::eErrorOutOfDateKHR) {
         recreate_swapchain();
+
+        // create_command_pool();
+        // create_command_buffers();
+        // record();
+
         // TODO: Re-render buffer or blit to presentation surface again.
-        return;
+        return false;
     }
 
     frame = (frame + 1) % max_frames_in_flight;
+    return true;
 }
 
 constexpr float depth_bias_constant = 0.0f;
@@ -642,9 +648,4 @@ void recreate_swapchain() {
     g_swapchain = maybe_swapchain.value();
     g_swapchain_images = *g_swapchain.get_images();
     g_swapchain_views = *g_swapchain.get_image_views();
-
-    create_command_pool();
-    create_command_buffers();
-
-    record();
 }
