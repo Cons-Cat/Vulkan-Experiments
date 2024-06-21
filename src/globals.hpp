@@ -58,7 +58,7 @@ inline std::optional<vkb::SwapchainBuilder> g_swapchain_builder;
 
 inline vk::Device g_device;
 
-inline constexpr std::uint32_t max_frames_in_flight = 3;
+inline constexpr std::uint32_t max_frames_in_flight = 2;
 inline constexpr std::uint32_t game_width = 480;
 inline constexpr std::uint32_t game_height = 320;
 inline constinit std::uint32_t g_screen_width = game_width;

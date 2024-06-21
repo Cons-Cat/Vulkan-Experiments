@@ -56,6 +56,7 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     g_present_queue_index = *device.get_queue_index(vkb::QueueType::present);
 
     g_swapchain_builder = vkb::SwapchainBuilder{device};
+    g_swapchain_builder->set_required_min_image_count(max_frames_in_flight);
 
     return device.device;
 }
