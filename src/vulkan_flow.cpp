@@ -157,9 +157,7 @@ void update_descriptors() {
     assert(dsu_camera.ok());
 }
 
-constinit unsigned frame = 0;
-
-auto render_and_present() -> bool {
+void render_and_present(unsigned frame) {
     constexpr auto timeout = std::numeric_limits<uint64_t>::max();
 
     // Wait for host to signal the fence for this swapchain frame.
@@ -168,14 +166,11 @@ auto render_and_present() -> bool {
 
     // Get a swapchain index that is currently presentable.
     unsigned image_index;
-    auto error = static_cast<vk::Result>(vulk.vkAcquireNextImageKHR(
-        g_device, g_swapchain.swapchain, timeout, g_available_semaphores[frame],
-        nullptr, &image_index));
 
-    if (error == vk::Result::eErrorOutOfDateKHR) {
-        recreate_swapchain();
-        return false;
-    }
+    // Throw an exception here.
+    auto _ = vulk.vkAcquireNextImageKHR(g_device, g_swapchain.swapchain,
+                                        timeout, g_available_semaphores[frame],
+                                        nullptr, &image_index);
 
     if (g_image_in_flight[image_index] != nullptr) {
         vulk.vkWaitForFences(g_device, 1, &g_image_in_flight[image_index],
@@ -214,20 +209,8 @@ auto render_and_present() -> bool {
         .setWaitSemaphores(signal_semaphores)
         .setSwapchains(swapchains);
 
-    error = g_graphics_queue.presentKHR(present_info);
-    if (error == vk::Result::eErrorOutOfDateKHR) {
-        recreate_swapchain();
-
-        // create_command_pool();
-        // create_command_buffers();
-        // record();
-
-        // TODO: Re-render buffer or blit to presentation surface again.
-        return false;
-    }
-
-    frame = (frame + 1) % max_frames_in_flight;
-    return true;
+    // Throw an exception here.
+    auto _ = g_graphics_queue.presentKHR(present_info);
 }
 
 constexpr float depth_bias_constant = 0.0f;

@@ -10,7 +10,7 @@ void create_command_buffers();
 void create_sync_objects();
 void update_descriptors();
 void recreate_swapchain();
-auto render_and_present() -> bool;
+void render_and_present(unsigned);
 void record_rendering(vk::CommandBuffer& cmd);
 void record_lights(vk::CommandBuffer& cmd);
 void record_compositing(vk::CommandBuffer& cmd, std::size_t frame);

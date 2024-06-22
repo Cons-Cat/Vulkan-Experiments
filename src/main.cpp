@@ -256,9 +256,24 @@ auto main() -> int {
         g_screen_width = static_cast<std::uint32_t>(width);
         g_screen_height = static_cast<std::uint32_t>(height);
 
+        // TODO: Move this into the loop to better parallelize frame recording
+        // and presentation.
         record();
 
-        render_and_present();
+        for (unsigned i = 0; i < max_frames_in_flight; ++i) {
+            // Attempt to render each frame in a loop.
+            try {
+                render_and_present(i);
+            } catch (vk::OutOfDateKHRError const& e) {
+                recreate_swapchain();
+
+                // TODO: Only rerender the compositing layer, or simply blit the
+                // render to the new window's surface.
+                create_command_pool();
+                create_command_buffers();
+                record();
+            }
+        }
     }
 
     g_device.waitIdle();
