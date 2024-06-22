@@ -276,9 +276,16 @@ void set_all_render_state(vk::CommandBuffer cmd) {
         .setOffset(offsetof(buffer_storage::property, scaling))
         .setFormat(vk::Format::eR32G32B32Sfloat);  // `glm::vec3`
 
+    vk::VertexInputAttributeDescription2EXT
+        per_instance_color_blend_attribute{};
+    per_instance_color_blend_attribute.setBinding(1)
+        .setLocation(5)
+        .setOffset(offsetof(buffer_storage::property, color_blend))
+        .setFormat(vk::Format::eR32G32B32A32Sfloat);  // `glm::vec4`
+
     vk::VertexInputAttributeDescription2EXT per_instance_id_attribute{};
     per_instance_id_attribute.setBinding(1)
-        .setLocation(5)
+        .setLocation(6)
         .setOffset(offsetof(buffer_storage::property, id))
         .setFormat(vk::Format::eR32Uint);  // `unsigned`
 
@@ -286,7 +293,8 @@ void set_all_render_state(vk::CommandBuffer cmd) {
         {per_vertex_binding, per_instance_binding},
         {per_vertex_position_attribute, per_vertex_normal_attribute,
          per_instance_position_attribute, per_instance_rotation_attribute,
-         per_instance_scaling_attribute, per_instance_id_attribute});
+         per_instance_scaling_attribute, per_instance_color_blend_attribute,
+         per_instance_id_attribute});
 
     cmd.setDepthClampEnableEXT(vk::False);
     cmd.setDepthClipEnableEXT(vk::False);

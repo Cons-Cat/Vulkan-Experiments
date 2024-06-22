@@ -54,6 +54,7 @@ struct mesh_instance {
     alignas(16) glm::vec3 position;
     alignas(16) glm::fquat rotation;
     alignas(16) glm::vec3 scaling = glm::vec3(1);
+    alignas(16) glm::vec4 color_blend = glm::vec4(1);
     signed int index_offset;
     index_type index_count;
 };
@@ -249,6 +250,7 @@ class buffer_storage {
         alignas(16) glm::vec3 position;
         alignas(16) glm::fquat rotation;
         alignas(16) glm::vec3 scaling;
+        alignas(16) glm::vec4 color_blend;
         std::uint32_t id;
     };
 

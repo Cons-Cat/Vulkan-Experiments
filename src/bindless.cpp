@@ -105,9 +105,10 @@ void buffer_storage::push_instances_of(
     // concatenated onto `m_data` in the future with `.push_properties()`.
     for (auto&& i : instances) {
         // Give every instance of anything a unique ID for now.
+        // This will be incorrect when singular meshes use multiple materials.
         ++m_next_instance_id;
         m_instance_properties.emplace_back(i.position, i.rotation, i.scaling,
-                                           m_next_instance_id);
+                                           i.color_blend, m_next_instance_id);
     }
 }
 

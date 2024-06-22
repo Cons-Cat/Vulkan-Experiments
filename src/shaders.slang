@@ -167,8 +167,11 @@ struct vs_in {
 
     [vk::location(4)]
     float3 instance_scale;
-    
+
     [vk::location(5)]
+    float4 instance_color_blend;
+    
+    [vk::location(6)]
     uint id;
 };
 
@@ -212,6 +215,7 @@ vs_out demo_vertex_main(in vs_in vert,
         float3 (1.0, 0.0, 0.0), float3 (0.0, 1.0, 0.0), float3 (0.0, 0.0, 1.0),
     };
     float3 color = colors[invocation_index % 3];
+    color *= vert.instance_color_blend.rgb; // TODO: Support transparency.
 
     float4x4 view = g_bindless.get_view_matrix();
 #else

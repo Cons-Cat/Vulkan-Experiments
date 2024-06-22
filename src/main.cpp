@@ -226,6 +226,7 @@ auto main() -> int {
         mesh_instance const cube_inst2 = {
             .position = {1, 0.15f, 0.5f},
             .rotation = glm::toQuat(glm::rotate(a, rotation, {1, 1, 1})),
+            .color_blend = {3, 0.5f, 0.25f, 1},
             .index_count =
                 static_cast<index_type>(g_cube_mesh.m_indices.size()),
         };
