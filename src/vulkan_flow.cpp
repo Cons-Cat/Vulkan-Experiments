@@ -213,7 +213,7 @@ void render_and_present(unsigned frame) {
     auto _ = g_graphics_queue.presentKHR(present_info);
 }
 
-constexpr float depth_bias_constant = 0.0f;
+constexpr float depth_bias_constant = 0.01f;
 constexpr float depth_bias_slope = 0.25f;
 
 // TODO: Pre-record these once, before rendering frames.
@@ -291,8 +291,7 @@ void set_all_render_state(vk::CommandBuffer cmd) {
     cmd.setDepthClampEnableEXT(vk::False);
     cmd.setDepthClipEnableEXT(vk::False);
 
-    cmd.setDepthBiasEnable(vk::True);
-    cmd.setDepthBias(depth_bias_constant, 0, depth_bias_slope);
+    cmd.setDepthBiasEnable(vk::False);
     cmd.setDepthTestEnable(vk::True);
     cmd.setDepthWriteEnable(vk::True);
     cmd.setDepthBoundsTestEnable(vk::False);
@@ -461,6 +460,8 @@ void record_lights(vk::CommandBuffer& cmd) {
     vk::Rect2D render_area;
     render_area.setOffset({0, 0}).setExtent({game_width, game_height});
 
+    cmd.setDepthBiasEnable(vk::False);
+    cmd.setDepthBias(depth_bias_constant, 0, depth_bias_slope);
     cmd.setCullMode(vk::CullModeFlagBits::eFront);
     cmd.setViewportWithCount(1, &viewport);
     cmd.setScissorWithCount(1, &scissor);

@@ -186,7 +186,7 @@ auto main() -> int {
     };
 
     glm::mat4x4 proj = projection_matrix;
-    proj[1][1] *= -1.f;
+    proj[1][1] *= -1.f;  // Invert Y.
     g_bindless_data.set_proj_matrix(proj);
 
     g_camera.position.z = 2.f;

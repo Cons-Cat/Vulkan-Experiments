@@ -364,10 +364,10 @@ float4 composite_fragment_main(float2 uv : SV_Position) : SV_Target0 {
             float specular = pow(specular_intensity, specular_softness);
 
             this_light += specular;
-
-            // Mix all lights together.
-            frag_light += this_light;
         }
+
+        // Mix all lights together.
+        frag_light += this_light;
     }
 
     // Left adjacency.
