@@ -195,6 +195,7 @@ auto main() -> int {
 
     // Game loop.
     while (win.ProcessEvents()) {
+        g_next_instance_id = 0;
         g_bindless_data.reset();
         g_bindless_data.set_proj_matrix(proj);
 
@@ -232,17 +233,22 @@ auto main() -> int {
         };
         // clang-format on
 
-        mesh_instance const plane_inst = {
-            .position = {0.f, -0.75f, 0.f},
-            // clang-format off
-            .scaling = {10.f, 10.f, 10.f},
-            // clang-format on
+        mesh_instance const grid_inst_even = {
+            .color_blend = {0, 0, 0, 1},
+            .index_count =
+                static_cast<index_type>(g_plane_mesh.m_indices.size()),
+        };
+        mesh_instance const grid_inst_odd = {
+            .color_blend = {40, 40, 40, 1},
             .index_count =
                 static_cast<index_type>(g_plane_mesh.m_indices.size()),
         };
 
+        std::vector plane_instances = make_checkerboard_plane(
+            {0, -0.8f, 0}, 1.f, 1.f, 10, 10, grid_inst_even, grid_inst_odd);
+
         g_bindless_data.push_instances_of(0, {cube_inst1, cube_inst2});
-        g_bindless_data.push_instances_of(1, {plane_inst});
+        g_bindless_data.push_instances_of(1, plane_instances);
 
         // Finalize data to be transferred.
         g_bindless_data.push_properties();

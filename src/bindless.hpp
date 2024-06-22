@@ -55,6 +55,7 @@ struct mesh_instance {
     alignas(16) glm::fquat rotation;
     alignas(16) glm::vec3 scaling = glm::vec3(1);
     alignas(16) glm::vec4 color_blend = glm::vec4(1);
+    unsigned id = 0;
     signed int index_offset;
     index_type index_count;
 };
@@ -74,7 +75,7 @@ class buffer_storage {
     static constexpr unsigned int member_stride = 4;
     using member_type = unsigned int;
 
-    buffer_storage() : m_data(2'048z) {
+    buffer_storage() : m_data(2'048z * 8) {
         reset();
 
         //  The vector is already zero-initialized here.
@@ -267,7 +268,6 @@ class buffer_storage {
     std::vector<index_type> m_indices;
 
     std::vector<property> m_instance_properties;
-    unsigned m_next_instance_id = 0;
 
     struct mesh_count {
         int vertex_offset;

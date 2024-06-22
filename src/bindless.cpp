@@ -5,8 +5,6 @@
 #include "light.hpp"
 
 void buffer_storage::reset() {
-    m_next_instance_id = 0;
-
     // `m_data`'s size member must be reset, but this does not reallocate.
     m_data.resize(vertices_offset);
     m_indices.clear();
@@ -77,18 +75,20 @@ void buffer_storage::push_instances_of(
 
     unsigned instance_index_count = instances.front().index_count;
     int instance_index_offset = instances.front().index_offset;
+    unsigned instance_first_id = instances.front().id;
 
     // All indices must be the same across these instances, because they are
     // pushed as a single command.
     for (auto&& i : instances) {
         assert(i.index_count == instance_index_count);
         assert(i.index_offset == instance_index_offset);
+        assert(i.id == instance_first_id);
     }
 
     vk::DrawIndexedIndirectCommand command{};
     command
         // Instances:
-        .setFirstInstance(m_next_instance_id)
+        .setFirstInstance(instance_first_id)
         .setInstanceCount(static_cast<unsigned>(instances.size()))
         // Vertices:
         .setVertexOffset(m_counts[mesh_index].vertex_offset)
@@ -104,11 +104,13 @@ void buffer_storage::push_instances_of(
     // Copy the instance's properties into `m_instance_properties` to be
     // concatenated onto `m_data` in the future with `.push_properties()`.
     for (auto&& i : instances) {
-        // Give every instance of anything a unique ID for now.
-        // This will be incorrect when singular meshes use multiple materials.
-        ++m_next_instance_id;
+        // Generate a new instance ID if one is not specified.
+        if (i.id == 0) {
+            ++g_next_instance_id;
+        }
+        unsigned id = (i.id == 0) ? g_next_instance_id : i.id;
         m_instance_properties.emplace_back(i.position, i.rotation, i.scaling,
-                                           i.color_blend, m_next_instance_id);
+                                           i.color_blend, id);
     }
 }
 
@@ -125,6 +127,8 @@ void buffer_storage::push_properties() {
     set_properties_offset(static_cast<member_type>(m_data.size()));
 
     // Reserve storage in `m_data` for command properties.
+    assert(m_data.size() + (m_instance_properties.size() * sizeof(property)) <
+           m_data.capacity());
     m_data.resize(m_data.size() +
                   (m_instance_properties.size() * sizeof(property)));
 

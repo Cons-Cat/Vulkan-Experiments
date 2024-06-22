@@ -216,7 +216,8 @@ vs_out demo_vertex_main(in vs_in vert,
     };
     float3 color = colors[invocation_index % 3];
     // TODO: Support transparency.
-    color *= saturate(vert.instance_color_blend.rgb);
+    color *= vert.instance_color_blend.rgb;
+    color = clamp(color, 0, 1);
 
     float4x4 view = g_bindless.get_view_matrix();
 #else

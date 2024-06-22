@@ -69,3 +69,4 @@ inline constexpr auto depth_format = vk::Format::eD32Sfloat;
 
 inline vku::GenericBuffer g_buffer;
 inline vku::GenericBuffer g_instance_properties;
+inline constinit unsigned g_next_instance_id;
