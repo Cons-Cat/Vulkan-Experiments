@@ -228,6 +228,13 @@ class buffer_storage {
         return get_at<member_type>(member_stride * 10z);
     }
 
+    [[nodiscard]]
+    auto get_mirrors_offset() const -> member_type {
+        // The first 4 textures are hard-coded into the renderer, add the number
+        // of mesh textures, and that is the beginning of the mirror textures.
+        return 4 + get_textures_count();
+    }
+
     void set_camera_position(glm::vec3 position) {
         set_at(position, cameras_offset - 16);
     }

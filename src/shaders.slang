@@ -133,7 +133,12 @@ struct buffer_storage {
         return get_at<member_type>(member_stride * 10);
     }
 
-    
+    uint get_mirrors_offset() {
+        // The first 4 textures are hard-coded into the renderer, add the number
+        // of mesh textures, and that is the beginning of the mirror textures.
+        return 4 + get_textures_count();
+    }
+
     [mutating]
     void set_camera_position(float3 position) {
         return set_at<float3>(position, cameras_offset - 16);
@@ -359,7 +364,7 @@ float4 composite_fragment_main(float2 uv : SV_Position) : SV_Target0 {
     float3 frag_xyz = color_textures[2].Load(coord).xyz;
     float3 frag_normal = color_textures[1].Load(coord).xyz;
 
-    const float ambient_light = 0.15f;
+    const float ambient_light = 0.05f;
 
     const float4x4 to_screen_matrix = {
         0.5f,    0, 0, 0.5f,

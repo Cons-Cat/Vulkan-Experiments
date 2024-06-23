@@ -20,6 +20,7 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
         .add_required_extension("VK_EXT_shader_object")
         .add_required_extension("VK_EXT_depth_clip_enable")
         .add_required_extension("VK_KHR_buffer_device_address")
+        .add_required_extension("VK_KHR_multiview")
         .set_required_features(vulkan_1_0_features)
         .set_required_features_12(vulkan_1_2_features);
 
