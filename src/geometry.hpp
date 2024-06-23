@@ -53,34 +53,29 @@ inline auto make_checkerboard_plane(
     ++g_next_instance_id;
     unsigned id = g_next_instance_id;
 
-    auto fill_in_grid = [&](unsigned offset, mesh_instance const& property) {
-        for (unsigned j = offset; j < columns; j += 2) {
-            for (unsigned i = 0; i < rows; ++i) {
-                bool is_odd_row = i & 1u;
-                bool is_odd_instance = offset == 1;
-                glm::vec3 position;
+    for (unsigned j = 0; j < columns; ++j) {
+        for (unsigned i = 0; i < rows; ++i) {
+            glm::vec3 position =
+                center - glm::vec3{(static_cast<float>(j) -
+                                    (static_cast<float>(columns) / 2.f)) *
+                                       scale_x,
+                                   0,
+                                   (static_cast<float>(i) -
+                                    (static_cast<float>(rows) / 2.f)) *
+                                       scale_z};
 
-                position =
-                    center - glm::vec3{(static_cast<float>(j) -
-                                        (static_cast<float>(columns) / 2.f) +
-                                        (is_odd_row)) *
-                                           scale_x,
-                                       0,
-                                       (static_cast<float>(i) -
-                                        (static_cast<float>(rows) / 2.f)) *
-                                           scale_z};
-
-                mesh_instance instance = property;
-                instance.position = position;
-                instance.id = id;
-                instances.push_back(instance);
+            mesh_instance instance;
+            if ((i + j) & 1) {
+                instance = properties_even;
+            } else {
+                instance = properties_odd;
             }
+            instance.scaling = {scale_x, 1, scale_z};
+            instance.position = position;
+            instance.id = id;
+            instances.push_back(instance);
         }
-    };
-    // Even grid cells.
-    fill_in_grid(0, properties_even);
-    // Odd grid cells.
-    fill_in_grid(1, properties_odd);
+    }
 
     return instances;
 }
