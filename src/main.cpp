@@ -234,6 +234,7 @@ auto main() -> int {
         // clang-format on
 
         mesh_instance const grid_inst_even = {
+            .color_blend = {1, 2, 1, 1},
             .index_count =
                 static_cast<index_type>(g_plane_mesh.m_indices.size()),
         };

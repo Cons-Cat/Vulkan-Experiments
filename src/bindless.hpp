@@ -287,6 +287,8 @@ class buffer_storage {
 
     std::vector<property> m_instance_properties;
 
+    unsigned m_instance_count;
+
     struct mesh_count {
         int vertex_offset;
         int index_offset;

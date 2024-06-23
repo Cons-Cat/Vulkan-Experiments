@@ -10,6 +10,7 @@ void buffer_storage::reset() {
     m_indices.clear();
     m_instance_properties.clear();
     m_counts.clear();
+    m_instance_count = 0;
 
     // Zero out the prologue data, which is safe and well-defined because
     // `member_type` and `std::byte` are trivial integers.
@@ -75,20 +76,20 @@ void buffer_storage::push_instances_of(
 
     unsigned instance_index_count = instances.front().index_count;
     int instance_index_offset = instances.front().index_offset;
-    unsigned instance_first_id = instances.front().id;
+    // unsigned instance_first_id = instances.front().id;
 
     // All indices must be the same across these instances, because they are
     // pushed as a single command.
     for (auto&& i : instances) {
         assert(i.index_count == instance_index_count);
         assert(i.index_offset == instance_index_offset);
-        assert(i.id == instance_first_id);
+        // assert(i.id == instance_first_id);
     }
 
     vk::DrawIndexedIndirectCommand command{};
     command
         // Instances:
-        .setFirstInstance(instance_first_id)
+        .setFirstInstance(m_instance_count)
         .setInstanceCount(static_cast<unsigned>(instances.size()))
         // Vertices:
         .setVertexOffset(m_counts[mesh_index].vertex_offset)
@@ -96,6 +97,7 @@ void buffer_storage::push_instances_of(
         .setFirstIndex(static_cast<unsigned>(m_counts[mesh_index].index_offset +
                                              instance_index_offset))
         .setIndexCount(instance_index_count);
+    m_instance_count += instances.size();
 
     // Reserve storage in `m_data` for these instances.
     m_data.resize(m_data.size() + sizeof(command));
