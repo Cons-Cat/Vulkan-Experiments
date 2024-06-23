@@ -14,5 +14,5 @@ void render_and_present(unsigned);
 void record_rendering(vk::CommandBuffer& cmd);
 void record_lights(vk::CommandBuffer& cmd);
 void record_compositing(vk::CommandBuffer& cmd, std::size_t frame);
-void record();
+void record(unsigned int i);
 void set_all_render_state(vk::CommandBuffer cmd);

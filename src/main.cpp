@@ -244,8 +244,9 @@ auto main() -> int {
                 static_cast<index_type>(g_plane_mesh.m_indices.size()),
         };
 
-        std::vector plane_instances = make_checkerboard_plane(
-            {0, -0.8f, -0.5f}, 1.f, 1.f, 3, 3, grid_inst_even, grid_inst_odd);
+        std::vector plane_instances =
+            make_checkerboard_plane({0, -0.8f, -0.5f}, 1.25f, 0.75f, 5, 5,
+                                    grid_inst_even, grid_inst_odd);
 
         g_bindless_data.push_instances_of(0, {cube_inst1, cube_inst2});
         g_bindless_data.push_instances_of(1, plane_instances);
@@ -263,12 +264,9 @@ auto main() -> int {
         g_screen_width = static_cast<std::uint32_t>(width);
         g_screen_height = static_cast<std::uint32_t>(height);
 
-        // TODO: Move this into the loop to better parallelize frame recording
-        // and presentation.
-        record();
-
         for (unsigned i = 0; i < max_frames_in_flight; ++i) {
             // Attempt to render each frame in a loop.
+            record(i);
             try {
                 render_and_present(i);
             } catch (vk::OutOfDateKHRError const& e) {
@@ -278,7 +276,7 @@ auto main() -> int {
                 // render to the new window's surface.
                 create_command_pool();
                 create_command_buffers();
-                record();
+                record(i);
             }
         }
     }

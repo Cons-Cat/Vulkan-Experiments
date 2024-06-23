@@ -609,18 +609,16 @@ void record_compositing(vk::CommandBuffer& cmd, std::size_t frame) {
     );
 }
 
-void record() {
-    for (std::size_t i = 0; i < max_frames_in_flight; ++i) {
-        vk::CommandBuffer& cmd = g_command_buffers[i];
-        vk::CommandBufferBeginInfo begin_info;
-        cmd.begin(begin_info);
+void record(unsigned int i) {
+    vk::CommandBuffer& cmd = g_command_buffers[i];
+    vk::CommandBufferBeginInfo begin_info;
+    cmd.begin(begin_info);
 
-        record_rendering(cmd);
-        record_lights(cmd);
-        record_compositing(cmd, i);
+    record_rendering(cmd);
+    record_lights(cmd);
+    record_compositing(cmd, i);
 
-        cmd.end();
-    }
+    cmd.end();
 }
 
 void recreate_swapchain() {
