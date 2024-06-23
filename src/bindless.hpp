@@ -210,6 +210,24 @@ class buffer_storage {
         return get_at<member_type>(member_stride * 8z);
     }
 
+    void set_textures_count(member_type count) {
+        set_at(count, member_stride * 9z);
+    }
+
+    [[nodiscard]]
+    auto get_textures_count() const -> member_type const& {
+        return get_at<member_type>(member_stride * 9z);
+    }
+
+    void set_mirrors_count(member_type count) {
+        set_at(count, member_stride * 10z);
+    }
+
+    [[nodiscard]]
+    auto get_mirrors_count() const -> member_type const& {
+        return get_at<member_type>(member_stride * 10z);
+    }
+
     void set_camera_position(glm::vec3 position) {
         set_at(position, cameras_offset - 16);
     }

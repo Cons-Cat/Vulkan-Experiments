@@ -116,6 +116,25 @@ struct buffer_storage {
     }
 
     [mutating]
+    void set_textures_count(uint index, member_type new_count) {
+        return set_at<member_type>(member_stride * 9, new_count);
+    }
+
+    uint get_textures_count() {
+        return get_at<member_type>(member_stride * 9);
+    }
+
+    [mutating]
+    void set_mirrors_count(uint index, member_type new_count) {
+        return set_at<member_type>(member_stride * 10, new_count);
+    }
+
+    uint get_mirrors_count() {
+        return get_at<member_type>(member_stride * 10);
+    }
+
+    
+    [mutating]
     void set_camera_position(float3 position) {
         return set_at<float3>(position, cameras_offset - 16);
     }
@@ -216,8 +235,28 @@ vs_out demo_vertex_main(in vs_in vert,
     };
     float3 color = colors[invocation_index % 3];
     // TODO: Support transparency.
-    color *= vert.instance_color_blend.rgb;
-    color = clamp(color, 0, 1);
+    float3 blend = vert.instance_color_blend.rgb;
+
+    // Invert colors with a negative blend.
+    if (blend.r < 0.f) {
+        color.r = 1.f - color.r * abs(blend.r);
+    } else {
+        color.r = color.r * blend.r;
+    }
+    
+    if (blend.g < 0.f) {
+        color.g = 1.f - color.g * abs(blend.g);
+    } else {
+        color.g = color.g * blend.g;
+    }
+    
+    if (blend.b < 0.f) {
+        color.b = 1.f - color.b * abs(blend.b);
+    } else {
+        color.b = color.b * blend.b;
+    }
+
+    color = saturate(color);
 
     float4x4 view = g_bindless.get_view_matrix();
 #else

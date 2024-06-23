@@ -227,25 +227,24 @@ auto main() -> int {
         mesh_instance const cube_inst2 = {
             .position = {1, 0.15f, 0.5f},
             .rotation = glm::toQuat(glm::rotate(a, rotation, {1, 1, 1})),
-            .color_blend = {3, 0.5f, 0.25f, 1},
+            .color_blend = {-1, -1, -1, 1},
             .index_count =
                 static_cast<index_type>(g_cube_mesh.m_indices.size()),
         };
         // clang-format on
 
         mesh_instance const grid_inst_even = {
-            .color_blend = {0, 0, 0, 1},
             .index_count =
                 static_cast<index_type>(g_plane_mesh.m_indices.size()),
         };
         mesh_instance const grid_inst_odd = {
-            .color_blend = {40, 40, 40, 1},
+            .color_blend = {-0.9, -0.9, -0.9, 1},
             .index_count =
                 static_cast<index_type>(g_plane_mesh.m_indices.size()),
         };
 
         std::vector plane_instances = make_checkerboard_plane(
-            {0, -0.8f, 0}, 1.f, 1.f, 10, 10, grid_inst_even, grid_inst_odd);
+            {0, -0.8f, -0.5f}, 1.f, 1.f, 3, 3, grid_inst_even, grid_inst_odd);
 
         g_bindless_data.push_instances_of(0, {cube_inst1, cube_inst2});
         g_bindless_data.push_instances_of(1, plane_instances);
