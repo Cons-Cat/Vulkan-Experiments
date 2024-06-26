@@ -65,8 +65,8 @@ inline constinit std::uint32_t g_screen_width = game_width;
 inline constinit std::uint32_t g_screen_height = game_height;
 
 // TODO: Dynamically select a supported depth format.
-inline constexpr auto depth_format = vk::Format::eD32Sfloat;
+inline constexpr auto depth_format = vk::Format::eD24UnormS8Uint;
 
-inline vku::GenericBuffer g_buffer;
+inline vku::GenericBuffer g_device_local_buffer;
 inline vku::GenericBuffer g_instance_properties;
 inline constinit unsigned g_next_instance_id;

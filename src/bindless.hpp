@@ -75,7 +75,7 @@ class buffer_storage {
     static constexpr unsigned int member_stride = 4;
     using member_type = unsigned int;
 
-    buffer_storage() : m_data(2'048z * 8) {
+    buffer_storage() : m_data(1'048'576z) {
         reset();
 
         //  The vector is already zero-initialized here.

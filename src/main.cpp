@@ -137,13 +137,14 @@ auto main() -> int {
 
     // TODO: `g_buffer` is hard coded to 2 kibibytes, which might be a problem
     // later.
-    g_buffer = vku::GenericBuffer(g_device, g_physical_device.memory_properties,
-                                  vk::BufferUsageFlagBits::eStorageBuffer |
-                                      vk::BufferUsageFlagBits::eTransferDst |
-                                      vk::BufferUsageFlagBits::eVertexBuffer |
-                                      vk::BufferUsageFlagBits::eIndexBuffer |
-                                      vk::BufferUsageFlagBits::eIndirectBuffer,
-                                  g_bindless_data.capacity());
+    g_device_local_buffer =
+        vku::GenericBuffer(g_device, g_physical_device.memory_properties,
+                           vk::BufferUsageFlagBits::eStorageBuffer |
+                               vk::BufferUsageFlagBits::eTransferDst |
+                               vk::BufferUsageFlagBits::eVertexBuffer |
+                               vk::BufferUsageFlagBits::eIndexBuffer |
+                               vk::BufferUsageFlagBits::eIndirectBuffer,
+                           g_bindless_data.capacity());
 
     vku::DescriptorSetMaker dsm;
     dsm.layout(g_descriptor_layout);
@@ -249,33 +250,36 @@ auto main() -> int {
                                     grid_inst_even, grid_inst_odd);
 
         g_bindless_data.push_instances_of(0, {cube_inst1, cube_inst2});
-        g_bindless_data.push_instances_of(1, plane_instances);
+        g_bindless_data.push_instances_of(1, std::move(plane_instances));
 
         // Finalize data to be transferred.
         g_bindless_data.push_properties();
 
-        g_buffer.upload(g_device, g_physical_device.memory_properties,
-                        g_command_pool, g_graphics_queue,
-                        g_bindless_data.data(), g_bindless_data.capacity());
+        g_device_local_buffer.upload(
+            g_device, g_physical_device.memory_properties, g_command_pool,
+            g_graphics_queue, g_bindless_data.data(),
+            g_bindless_data.capacity());
 
         short width;
         short height;
         win.GetWinSize(width, height);
-        g_screen_width = static_cast<std::uint32_t>(width);
-        g_screen_height = static_cast<std::uint32_t>(height);
+        g_screen_width = static_cast<unsigned>(width);
+        g_screen_height = static_cast<unsigned>(height);
 
         for (unsigned i = 0; i < max_frames_in_flight; ++i) {
             // Attempt to render each frame in a loop.
             record(i);
             try {
                 render_and_present(i);
-            } catch (vk::OutOfDateKHRError const& e) {
+            } catch (vk::OutOfDateKHRError const&) {
                 recreate_swapchain();
 
-                // TODO: Only rerender the compositing layer, or simply blit the
-                // render to the new window's surface.
+                // TODO: Reset the command buffer rather than reallocating
+                // so much.
                 create_command_pool();
                 create_command_buffers();
+                // TODO: Only rerender the compositing layer, or simply blit the
+                // render to the new window's surface.
                 record(i);
             }
         }

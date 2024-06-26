@@ -125,7 +125,7 @@ void update_descriptors() {
     dsu_camera.beginDescriptorSet(g_descriptor_set);
 
     dsu_camera.beginBuffers(0, 0, vk::DescriptorType::eStorageBuffer)
-        .buffer(g_buffer.buffer(), 0, vk::WholeSize)
+        .buffer(g_device_local_buffer.buffer(), 0, vk::WholeSize)
 
         .beginImages(1, 0, vk::DescriptorType::eCombinedImageSampler)
         // Color map.
@@ -341,7 +341,7 @@ constexpr vk::ClearColorValue clear_color = {1.f, 0.f, 1.f, 0.f};
 constexpr vk::ClearColorValue black_clear_color = {0, 0, 0, 1};
 constexpr vk::ClearColorValue depth_clear_color = {1.f, 1.f, 1.f, 1.f};
 
-void draw_meshes(vk::CommandBuffer& cmd) {
+void draw_meshes(vk::CommandBuffer cmd) {
     // TODO: Use the sized buffers so that debuggers have more info once
     // RenderDoc supports this feature.
     // cmd.bindVertexBuffers2(0, g_buffer.buffer(),
@@ -354,21 +354,24 @@ void draw_meshes(vk::CommandBuffer& cmd) {
     //     g_bindless_data.get_index_offset() +
     //     g_bindless_data.get_index_count(), vk::IndexType::eUint32);
 
-    cmd.bindVertexBuffers(0, {g_buffer.buffer(), g_buffer.buffer()},
-                          {g_bindless_data.vertices_offset,
-                           g_bindless_data.get_properties_offset()});
+    cmd.bindVertexBuffers(
+        0, {g_device_local_buffer.buffer(), g_device_local_buffer.buffer()},
+        {g_bindless_data.vertices_offset,
+         g_bindless_data.get_properties_offset()});
 
-    cmd.bindIndexBuffer(g_buffer.buffer(), g_bindless_data.get_index_offset(),
+    cmd.bindIndexBuffer(g_device_local_buffer.buffer(),
+                        g_bindless_data.get_index_offset(),
                         vk::IndexType::eUint32);
 
     // 16 is the byte offset of the instance count into the bindless buffer.
-    cmd.drawIndexedIndirectCount(
-        g_buffer.buffer(), g_bindless_data.get_instance_commands_offset(),
-        g_buffer.buffer(), 16, g_bindless_data.get_instance_commands_count(),
-        sizeof(vk::DrawIndexedIndirectCommand));
+    cmd.drawIndexedIndirectCount(g_device_local_buffer.buffer(),
+                                 g_bindless_data.get_instance_commands_offset(),
+                                 g_device_local_buffer.buffer(), 16,
+                                 g_bindless_data.get_instance_commands_count(),
+                                 sizeof(vk::DrawIndexedIndirectCommand));
 }
 
-void record_rendering(vk::CommandBuffer& cmd) {
+void record_rendering(vk::CommandBuffer cmd) {
     vk::Viewport viewport;
     viewport.setWidth(game_width)
         .setHeight(game_height)
@@ -438,9 +441,9 @@ void record_rendering(vk::CommandBuffer& cmd) {
     g_depth_image.setLayout(cmd, vk::ImageLayout::eDepthAttachmentOptimal,
                             vk::ImageAspectFlagBits::eDepth);
 
-    // Modify the bindless buffer with this culling shader.
-    shader_objects.bind_compute(cmd, 0);
-    cmd.dispatch(4, 0, 0);
+    // // Modify the bindless buffer with this culling shader.
+    // shader_objects.bind_compute(cmd, 0);
+    // cmd.dispatch(4, 0, 0);
 
     cmd.beginRendering(rendering_info);
 
@@ -456,7 +459,7 @@ void record_rendering(vk::CommandBuffer& cmd) {
     cmd.endRendering();
 }
 
-void record_lights(vk::CommandBuffer& cmd) {
+void record_lights(vk::CommandBuffer cmd) {
     vk::Viewport viewport;
     viewport.setWidth(game_width)
         .setHeight(game_height)
@@ -513,7 +516,7 @@ void record_lights(vk::CommandBuffer& cmd) {
     }
 }
 
-void record_compositing(vk::CommandBuffer& cmd, std::size_t frame) {
+void record_compositing(vk::CommandBuffer cmd, std::size_t frame) {
     // Post processing.
     g_color_image.setLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
     g_normal_image.setLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
@@ -610,7 +613,7 @@ void record_compositing(vk::CommandBuffer& cmd, std::size_t frame) {
 }
 
 void record(unsigned int i) {
-    vk::CommandBuffer& cmd = g_command_buffers[i];
+    vk::CommandBuffer const cmd = g_command_buffers[i];
     vk::CommandBufferBeginInfo begin_info;
     cmd.begin(begin_info);
 
