@@ -612,7 +612,7 @@ void record_compositing(vk::CommandBuffer cmd, std::size_t frame) {
     );
 }
 
-void record(unsigned int i) {
+void record_frame(unsigned int i) {
     vk::CommandBuffer const cmd = g_command_buffers[i];
     vk::CommandBufferBeginInfo begin_info;
     cmd.begin(begin_info);

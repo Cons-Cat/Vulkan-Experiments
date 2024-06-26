@@ -268,7 +268,7 @@ auto main() -> int {
 
         for (unsigned i = 0; i < max_frames_in_flight; ++i) {
             // Attempt to render each frame in a loop.
-            record(i);
+            record_frame(i);
             try {
                 render_and_present(i);
             } catch (vk::OutOfDateKHRError const&) {
@@ -280,7 +280,7 @@ auto main() -> int {
                 create_command_buffers();
                 // TODO: Only rerender the compositing layer, or simply blit the
                 // render to the new window's surface.
-                record(i);
+                record_frame(i);
             }
         }
     }
