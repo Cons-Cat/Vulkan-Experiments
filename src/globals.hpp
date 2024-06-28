@@ -18,8 +18,8 @@ inline constinit DispatchLoaderDynamic defaultDispatchLoaderDynamic;
 // `vulk` is a dispatcher to make Vulkan API calls on.
 inline constinit auto& vulk = vk::defaultDispatchLoaderDynamic;
 
-inline vk::Queue g_graphics_queue;
-inline std::uint32_t g_graphics_queue_index;
+inline vk::Queue g_graphics_queues[4];
+inline std::uint32_t g_graphics_queues_index;
 inline vk::Queue g_present_queue;
 inline std::uint32_t g_present_queue_index;
 

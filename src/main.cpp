@@ -255,9 +255,10 @@ auto main() -> int {
         // Finalize data to be transferred.
         g_bindless_data.push_properties();
 
+        // TODO: Make this part of the frame buffer recording.
         g_device_local_buffer.upload(
             g_device, g_physical_device.memory_properties, g_command_pool,
-            g_graphics_queue, g_bindless_data.data(),
+            g_graphics_queues[0], g_bindless_data.data(),
             g_bindless_data.capacity());
 
         short width;

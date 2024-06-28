@@ -50,8 +50,10 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     auto device = *maybe_device;
 
     // Initialize queues.
-    g_graphics_queue = *device.get_queue(vkb::QueueType::graphics);
-    g_graphics_queue_index = *device.get_queue_index(vkb::QueueType::graphics);
+    for (vk::Queue& queue : g_graphics_queues) {
+        queue = *device.get_queue(vkb::QueueType::graphics);
+    }
+    g_graphics_queues_index = *device.get_queue_index(vkb::QueueType::graphics);
 
     g_present_queue = *device.get_queue(vkb::QueueType::present);
     g_present_queue_index = *device.get_queue_index(vkb::QueueType::present);
@@ -81,7 +83,7 @@ void create_first_swapchain() {
 
 void create_command_pool() {
     vk::CommandPoolCreateInfo pool_info = {};
-    pool_info.setQueueFamilyIndex(g_graphics_queue_index)
+    pool_info.setQueueFamilyIndex(g_graphics_queues_index)
         .setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
 
     g_command_pool = g_device.createCommandPool(pool_info);
@@ -142,7 +144,7 @@ void update_descriptors() {
                vk::ImageLayout::eShaderReadOnlyOptimal)
         // Rasterization depth map.
         .image(g_nearest_neighbor_sampler, g_depth_image.imageView(),
-               vk::ImageLayout::eDepthReadOnlyOptimal);
+               vk::ImageLayout::eDepthStencilReadOnlyOptimal);
 
     if (!g_lights.light_maps.empty()) {
         // Light depth textures.
@@ -150,7 +152,7 @@ void update_descriptors() {
         // Add every light-source to the light map bindings.
         for (auto&& image : g_lights.light_maps) {
             dsu_camera.image(g_nearest_neighbor_sampler, image.imageView(),
-                             vk::ImageLayout::eDepthReadOnlyOptimal);
+                             vk::ImageLayout::eDepthStencilReadOnlyOptimal);
         }
     }
 
@@ -199,7 +201,7 @@ void render_and_present(unsigned frame) {
         .setSignalSemaphores(signal_semaphores);
 
     g_device.resetFences({g_in_flight_fences[frame]});
-    g_graphics_queue.submit(submit_info, g_in_flight_fences[frame]);
+    g_graphics_queues[0].submit(submit_info, g_in_flight_fences[frame]);
 
     // After rendering to the swapchain frame completes, present it to the
     // surface.
@@ -211,7 +213,7 @@ void render_and_present(unsigned frame) {
         .setSwapchains(swapchains);
 
     // Throw an exception here.
-    auto _ = g_graphics_queue.presentKHR(present_info);
+    auto _ = g_graphics_queues[0].presentKHR(present_info);
 }
 
 constexpr float depth_bias_constant = 0.01f;
@@ -371,6 +373,9 @@ void draw_meshes(vk::CommandBuffer cmd) {
                                  sizeof(vk::DrawIndexedIndirectCommand));
 }
 
+void record_skybox(vk::CommandBuffer cmd) {
+}
+
 void record_rendering(vk::CommandBuffer cmd) {
     vk::Viewport viewport;
     viewport.setWidth(game_width)
@@ -423,7 +428,7 @@ void record_rendering(vk::CommandBuffer cmd) {
 
     vk::RenderingAttachmentInfoKHR depth_attachment_info;
     depth_attachment_info.setClearValue(depth_clear_color)
-        .setImageLayout(vk::ImageLayout::eDepthAttachmentOptimal)
+        .setImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
         .setImageView(g_depth_image.imageView())
         .setLoadOp(vk::AttachmentLoadOp::eClear)
         .setStoreOp(vk::AttachmentStoreOp::eStore);
@@ -438,8 +443,9 @@ void record_rendering(vk::CommandBuffer cmd) {
     g_normal_image.setLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
     g_xyz_image.setLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
     g_id_image.setLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
-    g_depth_image.setLayout(cmd, vk::ImageLayout::eDepthAttachmentOptimal,
-                            vk::ImageAspectFlagBits::eDepth);
+    g_depth_image.setLayout(
+        cmd, vk::ImageLayout::eDepthStencilAttachmentOptimal,
+        vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil);
 
     // // Modify the bindless buffer with this culling shader.
     // shader_objects.bind_compute(cmd, 0);
@@ -486,7 +492,7 @@ void record_lights(vk::CommandBuffer cmd) {
 
         vk::RenderingAttachmentInfoKHR depth_attachment_info;
         depth_attachment_info.setClearValue(depth_clear_color)
-            .setImageLayout(vk::ImageLayout::eDepthAttachmentOptimal)
+            .setImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
             .setImageView(image.imageView())
             .setLoadOp(vk::AttachmentLoadOp::eClear)
             .setStoreOp(vk::AttachmentStoreOp::eStore);
@@ -496,8 +502,9 @@ void record_lights(vk::CommandBuffer cmd) {
             .setLayerCount(1)
             .setPDepthAttachment(&depth_attachment_info);
 
-        image.setLayout(cmd, vk::ImageLayout::eDepthAttachmentOptimal,
-                        vk::ImageAspectFlagBits::eDepth);
+        image.setLayout(cmd, vk::ImageLayout::eDepthStencilAttachmentOptimal,
+                        vk::ImageAspectFlagBits::eDepth |
+                            vk::ImageAspectFlagBits::eStencil);
 
         cmd.beginRendering(rendering_info);
 
@@ -522,12 +529,14 @@ void record_compositing(vk::CommandBuffer cmd, std::size_t frame) {
     g_normal_image.setLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
     g_xyz_image.setLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
     g_id_image.setLayout(cmd, vk::ImageLayout::eShaderReadOnlyOptimal);
-    g_depth_image.setLayout(cmd, vk::ImageLayout::eDepthReadOnlyOptimal,
-                            vk::ImageAspectFlagBits::eDepth);
+    g_depth_image.setLayout(
+        cmd, vk::ImageLayout::eDepthStencilReadOnlyOptimal,
+        vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil);
 
     for (auto&& image : g_lights.light_maps) {
-        image.setLayout(cmd, vk::ImageLayout::eDepthReadOnlyOptimal,
-                        vk::ImageAspectFlagBits::eDepth);
+        image.setLayout(cmd, vk::ImageLayout::eDepthStencilReadOnlyOptimal,
+                        vk::ImageAspectFlagBits::eDepth |
+                            vk::ImageAspectFlagBits::eStencil);
     }
 
     // The hard-coded compositing triangle does not require depth-testing.
@@ -617,6 +626,8 @@ void record_frame(unsigned int i) {
     vk::CommandBufferBeginInfo begin_info;
     cmd.begin(begin_info);
 
+    // TODO: Skyboxes should be rendered asynchronously, prior to this function.
+    record_skybox(cmd);
     record_rendering(cmd);
     record_lights(cmd);
     record_compositing(cmd, i);
