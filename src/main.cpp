@@ -36,11 +36,11 @@ auto main() -> int {
 
     vulk.init(vk::Instance{instance.instance});
 
-    my_window win;
-    win.SetTitle("");
-    win.SetWinSize(game_width, game_height);
+    my_window window;
+    window.SetTitle("");
+    window.SetWinSize(game_width, game_height);
     vk::SurfaceKHR surface =
-        static_cast<VkSurfaceKHR>(win.GetSurface(instance));
+        static_cast<VkSurfaceKHR>(window.GetSurface(instance));
 
     // Initialize global device.
     g_device = make_device(instance, surface);
@@ -195,7 +195,7 @@ auto main() -> int {
     static float rotation = 0.f;
 
     // Game loop.
-    while (win.ProcessEvents()) {
+    while (window.ProcessEvents()) {
         g_next_instance_id = 0;
         g_bindless_data.reset();
         g_bindless_data.set_proj_matrix(proj);
@@ -263,7 +263,7 @@ auto main() -> int {
 
         short width;
         short height;
-        win.GetWinSize(width, height);
+        window.GetWinSize(width, height);
         g_screen_width = static_cast<unsigned>(width);
         g_screen_height = static_cast<unsigned>(height);
 
