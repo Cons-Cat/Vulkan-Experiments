@@ -24,6 +24,7 @@ Checks: "bugprone-*,
          -cppcoreguidelines-pro-bounds-pointer-arithmetic,
          -cppcoreguidelines-pro-type-reinterpret-cast,
          -cppcoreguidelines-macro-usage,
+         -misc-non-private-member-variables-in-classes,
         "
 
 WarningsAsErrors: ''

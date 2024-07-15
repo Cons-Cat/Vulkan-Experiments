@@ -24,7 +24,7 @@ inline auto read_file(std::filesystem::path const& file_name)
 }
 
 struct shader_objects_t {
-    std::vector<vk::ShaderEXT> objects;  // NOLINT
+    std::vector<vk::ShaderEXT> objects;
 
     void add_shader(
         std::filesystem::path const& shader_path,

@@ -14,7 +14,6 @@
 struct vertex {
     constexpr vertex() = default;
 
-    // NOLINTNEXTLINE
     constexpr vertex(float x, float y, float z = 0.f, float w = 1.f)
         : position(x, y, z, w) {
     }
