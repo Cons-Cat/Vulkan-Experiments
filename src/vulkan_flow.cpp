@@ -196,12 +196,11 @@ void render_and_present(unsigned frame) {
     vk::SubmitInfo submit_info;
     submit_info.setWaitSemaphores(wait_semaphores)
         .setWaitDstStageMask(wait_stages)
-        .setCommandBufferCount(1)
-        .setPCommandBuffers(&g_command_buffers[image_index])
+        .setCommandBuffers(g_command_buffers[image_index])
         .setSignalSemaphores(signal_semaphores);
 
     g_device.resetFences({g_in_flight_fences[frame]});
-    g_graphics_queues[0].submit(submit_info, g_in_flight_fences[frame]);
+    g_graphics_queues[frame].submit(submit_info, g_in_flight_fences[frame]);
 
     // After rendering to the swapchain frame completes, present it to the
     // surface.
