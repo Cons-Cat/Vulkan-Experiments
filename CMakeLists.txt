@@ -8,6 +8,7 @@ target_sources(game PRIVATE
   src/main.cpp
   src/camera.cpp
   src/window.cpp
+  src/sync.cpp
   src/bindless.cpp
   src/vulkan_flow.cpp
   src/light.cpp
