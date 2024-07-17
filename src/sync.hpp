@@ -47,6 +47,8 @@ struct timeline_semaphore {
         submit_info.setPNext(&sema_info)
             .setWaitSemaphores(m_sema)
             .setCommandBuffers(cmd);
+
+        queue.submit(submit_info);
     }
 
     void signal_wait_submit(vk::Queue& queue, vk::CommandBuffer& cmd,
@@ -63,6 +65,8 @@ struct timeline_semaphore {
             .setSignalSemaphores(m_sema)
             .setWaitSemaphores(m_sema)
             .setCommandBuffers(cmd);
+
+        queue.submit(submit_info);
     }
 
     void signal(std::size_t signal_idx) const {
@@ -89,47 +93,3 @@ struct timeline_semaphore {
     std::size_t const m_frame_width;
     std::size_t m_frame_idx = 0;
 };
-
-/*
-struct raster_steps {
-    struct step {
-        vk::Queue queue;
-        std::size_t frag_shader_idx;
-        timeline_semaphore sema;
-    };
-
-    raster_steps(std::span<std::size_t> frag_shaders, std::size_t frame)
-        : m_frame(frame) {
-        std::size_t size = frag_shaders.size();
-        m_steps.reserve(size);
-        m_cmds.resize(size);
-        m_semas.resize(size);
-
-        vk::CommandBufferAllocateInfo cmd_info{g_command_pool,
-                                               vk::CommandBufferLevel::ePrimary,
-                                               static_cast<uint32_t>(size)};
-        m_cmds = g_device.allocateCommandBuffers(cmd_info);
-
-        for (std::size_t i = 0; i < size; ++i) {
-            m_steps.push_back({
-                .queue = g_graphics_queues[2 + (i * frame)],
-                .frag_shader_idx = frag_shaders[i],
-                .sema = {2},
-            });
-
-            // Shallow copy semaphores into a vector that can be waited on.
-            m_semas[i] = m_steps[i].sema.m_sema;
-        }
-    }
-
-    void record_and_submit(
-        std::span<void (*)(vk::CommandBuffer&)> record_callbacks);
-
-    std::size_t const m_frame;
-    std::vector<step> m_steps;
-    std::vector<vk::Semaphore> m_semas;
-    std::vector<vk::CommandBuffer> m_cmds;
-};
-
-inline std::array<raster_steps, max_frames_in_flight> g_raster_steps;
-*/

@@ -17,6 +17,7 @@ target_sources(game PRIVATE
 target_include_directories(game PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/)
 
 target_compile_options(game PRIVATE
+  -std=gnu++26
   -mavx2
   -mfma
   -mbmi
