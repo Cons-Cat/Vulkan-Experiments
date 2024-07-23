@@ -96,29 +96,20 @@ void create_command_buffers() {
 }
 
 void create_sync_objects() {
-    g_available_semaphores.resize(max_frames_in_flight);
-    g_finished_semaphore.resize(max_frames_in_flight);
-    g_in_flight_fences.resize(max_frames_in_flight);
-    g_image_in_flight.resize(g_swapchain.image_count, nullptr);
+    // TODO: Use timeline semaphores here.
+    vk::SemaphoreCreateInfo semaphore_info;
 
-    // TODO: Use hpp bindings for this.
+    vk::FenceCreateInfo fence_info;
+    fence_info.setFlags(vk::FenceCreateFlagBits::eSignaled);
 
-    VkSemaphoreCreateInfo semaphore_info = {};
-    semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    for (std::size_t i = 0; i < max_frames_in_flight; i++) {
+        g_available_semaphores[i] =
+            g_device.createSemaphore(semaphore_info, nullptr);
 
-    VkFenceCreateInfo fence_info = {};
-    fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+        g_finished_semaphore[i] =
+            g_device.createSemaphore(semaphore_info, nullptr);
 
-    for (size_t i = 0; i < max_frames_in_flight; i++) {
-        vulk.vkCreateSemaphore(g_device, &semaphore_info, nullptr,
-                               &g_available_semaphores[i]);
-
-        vulk.vkCreateSemaphore(g_device, &semaphore_info, nullptr,
-                               &g_finished_semaphore[i]);
-
-        vulk.vkCreateFence(g_device, &fence_info, nullptr,
-                           &g_in_flight_fences[i]);
+        g_in_flight_fences[i] = g_device.createFence(fence_info, nullptr);
     }
 }
 
@@ -164,20 +155,20 @@ void render_and_present(unsigned frame) {
     constexpr auto timeout = std::numeric_limits<uint64_t>::max();
 
     // Wait for host to signal the fence for this swapchain frame.
-    vulk.vkWaitForFences(g_device, 1, &g_in_flight_fences[frame], vk::True,
-                         timeout);
+    auto _ =
+        g_device.waitForFences(g_in_flight_fences[frame], vk::True, timeout);
 
     // Get a swapchain index that is currently presentable.
-    unsigned image_index;
-
     // Throw an exception here.
-    auto _ = vulk.vkAcquireNextImageKHR(g_device, g_swapchain.swapchain,
-                                        timeout, g_available_semaphores[frame],
-                                        nullptr, &image_index);
+    unsigned image_index =
+        g_device
+            .acquireNextImageKHR(g_swapchain.swapchain, timeout,
+                                 g_available_semaphores[frame], nullptr)
+            .value;
 
     if (g_image_in_flight[image_index] != nullptr) {
-        vulk.vkWaitForFences(g_device, 1, &g_image_in_flight[image_index],
-                             vk::True, timeout);
+        auto _ = g_device.waitForFences(g_image_in_flight[image_index],
+                                        vk::True, timeout);
     }
 
     g_image_in_flight[image_index] = g_in_flight_fences[frame];

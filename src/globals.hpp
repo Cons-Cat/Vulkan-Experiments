@@ -39,10 +39,11 @@ inline vk::Sampler g_nearest_neighbor_sampler;
 inline vk::CommandPool g_command_pool;
 inline std::vector<vk::CommandBuffer> g_command_buffers;
 
-inline std::vector<VkSemaphore> g_available_semaphores;
-inline std::vector<VkSemaphore> g_finished_semaphore;
-inline std::vector<VkFence> g_in_flight_fences;
-inline std::vector<VkFence> g_image_in_flight;
+// TODO: Use `timeline_semaphore`.
+inline std::array<vk::Semaphore, max_frames_in_flight> g_available_semaphores;
+inline std::array<vk::Semaphore, max_frames_in_flight> g_finished_semaphore;
+inline std::array<vk::Fence, max_frames_in_flight> g_in_flight_fences;
+inline std::array<vk::Fence, max_frames_in_flight> g_image_in_flight;
 
 inline vk::DescriptorSet g_descriptor_set;
 inline vk::DescriptorSetLayout g_descriptor_layout;
