@@ -30,8 +30,7 @@ void load_skybox() {
     ktxVulkanTexture texture;
 
     ktxVulkanDeviceInfo_Construct(&vdi, g_physical_device, g_device,
-                                  g_graphics_queues[0], g_command_pool,
-                                  nullptr);
+                                  g_graphics_queue, g_command_pool, nullptr);
 
     result = ktxTexture_CreateFromNamedFile(
         (getexepath().parent_path() / "skybox.ktx2").c_str(),
@@ -293,7 +292,7 @@ auto main() -> int {
         // TODO: Make this part of the frame buffer recording.
         g_device_local_buffer.upload(
             g_device, g_physical_device.memory_properties, g_command_pool,
-            g_graphics_queues[0], g_bindless_data.data(),
+            g_graphics_queue, g_bindless_data.data(),
             g_bindless_data.capacity());
 
         short width;

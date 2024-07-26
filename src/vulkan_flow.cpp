@@ -50,9 +50,7 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     auto device = *maybe_device;
 
     // Initialize queues.
-    for (vk::Queue& queue : g_graphics_queues) {
-        queue = *device.get_queue(vkb::QueueType::graphics);
-    }
+    g_graphics_queue = *device.get_queue(vkb::QueueType::graphics);
     g_graphics_queues_index = *device.get_queue_index(vkb::QueueType::graphics);
 
     g_present_queue = *device.get_queue(vkb::QueueType::present);
@@ -191,7 +189,7 @@ void render_and_present(unsigned frame) {
         .setSignalSemaphores(signal_semaphores);
 
     g_device.resetFences({g_in_flight_fences[frame]});
-    g_graphics_queues[frame].submit(submit_info, g_in_flight_fences[frame]);
+    g_graphics_queue.submit(submit_info, g_in_flight_fences[frame]);
 
     // After rendering to the swapchain frame completes, present it to the
     // surface.
@@ -203,7 +201,7 @@ void render_and_present(unsigned frame) {
         .setSwapchains(swapchains);
 
     // Throw an exception here.
-    auto _ = g_graphics_queues[0].presentKHR(present_info);
+    auto _ = g_graphics_queue.presentKHR(present_info);
 }
 
 constexpr float depth_bias_constant = 0.01f;

@@ -19,8 +19,7 @@ inline constinit DispatchLoaderDynamic defaultDispatchLoaderDynamic;
 inline constinit auto& vulk = vk::defaultDispatchLoaderDynamic;
 
 inline constexpr std::uint32_t max_frames_in_flight = 2;
-// Presentation queues + raster queues.
-inline vk::Queue g_graphics_queues[max_frames_in_flight + 8];
+inline vk::Queue g_graphics_queue;
 inline std::uint32_t g_graphics_queues_index;
 inline vk::Queue g_present_queue;
 inline std::uint32_t g_present_queue_index;
