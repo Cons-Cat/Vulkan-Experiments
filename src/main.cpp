@@ -3,6 +3,7 @@
 #include <VkBootstrap.h>
 #include <cstddef>
 #include <iostream>
+#include <ktxvulkan.h>
 
 #include "bindless.hpp"
 #include "camera.hpp"
@@ -17,6 +18,38 @@
 // Vulkan confuses the leak sanitizer.
 extern "C" auto __asan_default_options() -> char const* {  // NOLINT
     return "detect_leaks=0";
+}
+
+void load_skybox() {
+    ktxTexture* kTexture;
+    ktx_error_code_e result;
+    ktx_size_t offset;
+    ktx_uint8_t* image;
+    ktx_uint32_t level, layer, faceSlice;
+    ktxVulkanDeviceInfo vdi;
+    ktxVulkanTexture texture;
+
+    ktxVulkanDeviceInfo_Construct(&vdi, g_physical_device, g_device,
+                                  g_graphics_queues[0], g_command_pool,
+                                  nullptr);
+
+    result = ktxTexture_CreateFromNamedFile(
+        (getexepath().parent_path() / "skybox.ktx2").c_str(),
+        KTX_TEXTURE_CREATE_NO_FLAGS, &kTexture);
+    assert(result == KTX_SUCCESS);
+
+    result = ktxTexture_VkUploadEx(
+        kTexture, &vdi, &texture, VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    assert(result == KTX_SUCCESS);
+
+    ktxTexture_Destroy(kTexture);
+    ktxVulkanDeviceInfo_Destruct(&vdi);
+
+    // TODO:
+    defer {
+        ktxVulkanTexture_Destruct(&texture, g_device, nullptr);
+    };
 }
 
 auto main() -> int {
@@ -193,6 +226,8 @@ auto main() -> int {
     g_camera.position.z = 2.f;
 
     static float rotation = 0.f;
+
+    load_skybox();
 
     // Game loop.
     while (window.ProcessEvents()) {

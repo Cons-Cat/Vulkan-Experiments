@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.27)
 
-project(game LANGUAGES CXX)
+# `libktx` requires C.
+project(game LANGUAGES C CXX)
 
 add_executable(game)
 set_target_properties(game PROPERTIES CXX_STANDARD 26)
@@ -70,12 +71,15 @@ add_custom_target(shaders
   COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/composite_fragment.spv -entry composite_fragment_main -O3 -Wno-39001 -emit-spirv-via-glsl
 )
 
+# TODO: Copy skybox texture next to executable.
+
 find_package(Vulkan REQUIRED)
 find_package(VulkanHeaders REQUIRED)
 
 add_subdirectory(Vulkan-WSIWindow ${CMAKE_BINARY_DIR}/WSIWindow)
 add_subdirectory(vk-bootstrap)
 add_subdirectory(Vookoo)
+add_subdirectory(KTX-Software)
 add_subdirectory(glm)
 
 target_link_libraries(game PRIVATE
@@ -86,6 +90,7 @@ target_link_libraries(game PRIVATE
    WSIWindow
    vookoo_interface
    glm::glm
+   ktx
 )
 
 message(STATUS "Vulkan Headers Version: ${VulkanHeaders_VERSION}")
