@@ -71,7 +71,12 @@ add_custom_target(shaders
   COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/composite_fragment.spv -entry composite_fragment_main -O3 -Wno-39001 -emit-spirv-via-glsl
 )
 
-# TODO: Copy skybox texture next to executable.
+# Copy skybox texture next to executable.
+add_custom_command(
+  TARGET ${PROJECT_NAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy 
+    ${CMAKE_CURRENT_SOURCE_DIR}/resources/skybox.ktx2 
+    $<TARGET_FILE_DIR:${PROJECT_NAME}>)
 
 find_package(Vulkan REQUIRED)
 find_package(VulkanHeaders REQUIRED)
