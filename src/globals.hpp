@@ -9,6 +9,7 @@
 
 #include <VkBootstrap.h>
 #include <cstdint>
+#include <ktxvulkan.h>
 #include <optional>
 
 namespace vk {
@@ -32,6 +33,8 @@ inline vku::ColorAttachmentImage g_normal_image;
 inline vku::ColorAttachmentImage g_xyz_image;
 inline vku::ColorAttachmentImage g_id_image;
 inline vku::DepthStencilImage g_depth_image;
+
+inline ktxVulkanTexture g_ktx_skybox;
 
 inline vk::Sampler g_nearest_neighbor_sampler;
 

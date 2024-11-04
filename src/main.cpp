@@ -21,34 +21,25 @@ extern "C" auto __asan_default_options() -> char const* {  // NOLINT
 }
 
 void load_skybox() {
-    ktxTexture* kTexture;
+    ktxTexture* g_ktx_skybox_data;
     ktx_error_code_e result;
-    ktx_size_t offset;
-    ktx_uint8_t* image;
-    ktx_uint32_t level, layer, faceSlice;
     ktxVulkanDeviceInfo vdi;
-    ktxVulkanTexture texture;
 
     ktxVulkanDeviceInfo_Construct(&vdi, g_physical_device, g_device,
                                   g_graphics_queue, g_command_pool, nullptr);
 
     result = ktxTexture_CreateFromNamedFile(
         (getexepath().parent_path() / "skybox.ktx2").c_str(),
-        KTX_TEXTURE_CREATE_NO_FLAGS, &kTexture);
+        KTX_TEXTURE_CREATE_NO_FLAGS, &g_ktx_skybox_data);
     assert(result == KTX_SUCCESS);
 
     result = ktxTexture_VkUploadEx(
-        kTexture, &vdi, &texture, VK_IMAGE_TILING_OPTIMAL,
+        g_ktx_skybox_data, &vdi, &g_ktx_skybox, VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     assert(result == KTX_SUCCESS);
 
-    ktxTexture_Destroy(kTexture);
+    ktxTexture_Destroy(g_ktx_skybox_data);
     ktxVulkanDeviceInfo_Destruct(&vdi);
-
-    // TODO:
-    defer {
-        ktxVulkanTexture_Destruct(&texture, g_device, nullptr);
-    };
 }
 
 auto main() -> int {
@@ -194,8 +185,12 @@ auto main() -> int {
     light2_transform =
         glm::lookAt(light2_position, {0.f, 0.f, 0.f}, {0.f, 1.f, 0.f});
 
-    g_lights.push_back({light1_transform, projection_matrix, light1_position});
-    g_lights.push_back({light2_transform, projection_matrix, light2_position});
+    g_lights.push_back({.transform = light1_transform,
+                        .projection = projection_matrix,
+                        .position = light1_position});
+    g_lights.push_back({.transform = light2_transform,
+                        .projection = projection_matrix,
+                        .position = light2_position});
 
     // Update the descriptors because lights changed.
     update_descriptors();
@@ -227,6 +222,9 @@ auto main() -> int {
     static float rotation = 0.f;
 
     load_skybox();
+    defer {
+        ktxVulkanTexture_Destruct(&g_ktx_skybox, g_device, nullptr);
+    };
 
     // Game loop.
     while (window.ProcessEvents()) {
