@@ -9,6 +9,8 @@ auto make_device(vkb::Instance instance, vk::SurfaceKHR surface) -> vk::Device {
     vk::PhysicalDeviceFeatures vulkan_1_0_features;
     vulkan_1_0_features.setSampleRateShading(vk::True);
     vulkan_1_0_features.setShaderStorageImageMultisample(vk::True);
+    vulkan_1_0_features.setVertexPipelineStoresAndAtomics(vk::True);
+    vulkan_1_0_features.setFragmentStoresAndAtomics(vk::True);
 
     vk::PhysicalDeviceVulkan12Features vulkan_1_2_features{};
     vulkan_1_2_features.setDrawIndirectCount(vk::True);
