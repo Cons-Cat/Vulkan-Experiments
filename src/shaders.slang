@@ -38,10 +38,6 @@ struct buffer_storage {
         return get_at<light>(get_lights_offset() + (index * 144));
     }
 
-    float4x4 get_viewproj() {
-        return mul(get_proj_matrix(), get_view_matrix());
-    }
-
     struct property {
         float3 position;
         float3 rotation;
@@ -333,6 +329,9 @@ Sampler2D<float> depth_texture[5]; // Only index 3 may be used.
 [vk::binding(2, 0)]
 Sampler2D<float> light_maps[];
 
+[vk::binding(3, 0)]
+SamplerCube<float3> skybox;
+
 // Generate a triangle that covers the screen.
 [shader("vertex")]
 float4 composite_vertex_main(uint vertex : SV_VertexID)
@@ -447,6 +446,21 @@ float4 composite_fragment_main(float2 uv : SV_Position) : SV_Target0 {
 
     float3 color = color_textures[0].Load(coord).rgb;
     if (frag_id != 0) { color *= frag_light; }
-    
+
+    float4 view = {uv.x, uv.y, 1, 1};
+    view = mul(g_bindless.get_viewproj_matrix(), view);
+    float3 samp = view.xyz;
     return float4(color, 1);
+}
+
+[shader("vertex")]
+float3 skybox_vertex_main(in vs_in vert) : SV_Position {
+    float4 posClip = float4(vert.model_pos.xy, 1.0, 1.0);
+    float4 vecView = mul(posClip, g_bindless.get_viewproj_matrix());
+	return vecView.xyz;
+}
+
+[shader("fragment")]
+float4 skybox_fragment_main(in float3 view : SV_Position) : SV_Target0 {
+    return float4(skybox.Sample(view), 1);
 }

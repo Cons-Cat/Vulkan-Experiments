@@ -20,26 +20,44 @@ extern "C" auto __asan_default_options() -> char const* {  // NOLINT
     return "detect_leaks=0";
 }
 
-void load_skybox() {
-    ktxTexture* g_ktx_skybox_data;
+inline void load_skybox() {
+    ktxTexture2* p_ktx_skybox_data;
     ktx_error_code_e result;
     ktxVulkanDeviceInfo vdi;
 
     ktxVulkanDeviceInfo_Construct(&vdi, g_physical_device, g_device,
                                   g_graphics_queue, g_command_pool, nullptr);
 
-    result = ktxTexture_CreateFromNamedFile(
+    result = ktxTexture2_CreateFromNamedFile(
         (getexepath().parent_path() / "skybox.ktx2").c_str(),
-        KTX_TEXTURE_CREATE_NO_FLAGS, &g_ktx_skybox_data);
+        KTX_TEXTURE_CREATE_NO_FLAGS, &p_ktx_skybox_data);
     assert(result == KTX_SUCCESS);
 
-    result = ktxTexture_VkUploadEx(
-        g_ktx_skybox_data, &vdi, &g_ktx_skybox, VK_IMAGE_TILING_OPTIMAL,
+    result = ktxTexture2_VkUploadEx(
+        p_ktx_skybox_data, &vdi, &g_ktx_skybox, VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     assert(result == KTX_SUCCESS);
 
-    ktxTexture_Destroy(g_ktx_skybox_data);
+    ktxTexture2_Destroy(p_ktx_skybox_data);
     ktxVulkanDeviceInfo_Destruct(&vdi);
+
+    vk::ImageViewCreateInfo skybox_view_info;
+    // Set the non-default values.
+    skybox_view_info.image = g_ktx_skybox.image;
+    skybox_view_info.format = static_cast<vk::Format>(g_ktx_skybox.imageFormat);
+    skybox_view_info.viewType =
+        static_cast<vk::ImageViewType>(g_ktx_skybox.viewType);
+    skybox_view_info.subresourceRange.aspectMask =
+        vk::ImageAspectFlagBits::eColor;
+    skybox_view_info.subresourceRange.layerCount = g_ktx_skybox.layerCount;
+    skybox_view_info.subresourceRange.levelCount = g_ktx_skybox.levelCount;
+    // vk::ImageView skybox_view(view_info);
+    g_skybox_view = g_device.createImageView(skybox_view_info);
+
+    // image_view = vkctx.device.createImageView(viewInfo);
+    // g_skybox = vku::TextureImageCube();
+    // g_physical_device.memory_properties, 0, 0);
+    // g_skybox.update()
 }
 
 auto main() -> int {
@@ -124,11 +142,15 @@ auto main() -> int {
             .buffer(0, vk::DescriptorType::eStorageBuffer,
                     vk::ShaderStageFlagBits::eAllGraphics, 1)
             // Color/normal/xyz/ID/depth maps.
+            // TODO: Put mesh textures here.
             .image(1, vk::DescriptorType::eCombinedImageSampler,
                    vk::ShaderStageFlagBits::eFragment, 5)
             // Light maps.
             .image(2, vk::DescriptorType::eCombinedImageSampler,
                    vk::ShaderStageFlagBits::eFragment, g_lights.capacity())
+            // Skybox texture map.
+            .image(3, vk::DescriptorType::eCombinedImageSampler,
+                   vk::ShaderStageFlagBits::eFragment, 1)
             .createUnique(g_device)
             .release();
 
@@ -141,8 +163,9 @@ auto main() -> int {
     std::vector<vk::DescriptorPoolSize> pool_sizes;
     pool_sizes.emplace_back(vk::DescriptorType::eStorageBuffer, 1);
     pool_sizes.emplace_back(vk::DescriptorType::eCombinedImageSampler,
-                            // Five compositing textures, plus light maps.
-                            5 + g_lights.capacity());
+                            // 5 compositing textures, plus light maps, plus
+                            // 1 skybox texture.
+                            5 + g_lights.capacity() + 1);
 
     // Create an arbitrary number of descriptors in a pool.
     // Allow the descriptors to be freed, possibly not optimal behaviour.
@@ -192,7 +215,13 @@ auto main() -> int {
                         .projection = projection_matrix,
                         .position = light2_position});
 
-    // Update the descriptors because lights changed.
+    load_skybox();
+    defer {
+        g_device.destroy(g_skybox_view);
+        ktxVulkanTexture_Destruct(&g_ktx_skybox, g_device, nullptr);
+    };
+
+    // Initialize the descriptors.
     update_descriptors();
 
     // Compile and link shaders.
@@ -209,6 +238,12 @@ auto main() -> int {
                                      "../composite_vertex.spv");
     shader_objects.add_fragment_shader(getexepath().parent_path() /
                                        "../composite_fragment.spv");
+
+    shader_objects.add_vertex_shader(getexepath().parent_path() /
+                                     "../skybox_vertex.spv");
+    shader_objects.add_fragment_shader(getexepath().parent_path() /
+                                       "../skybox_fragment.spv");
+
     defer {
         shader_objects.destroy();
     };
@@ -220,11 +255,6 @@ auto main() -> int {
     g_camera.position.z = 2.f;
 
     static float rotation = 0.f;
-
-    load_skybox();
-    defer {
-        ktxVulkanTexture_Destruct(&g_ktx_skybox, g_device, nullptr);
-    };
 
     // Game loop.
     while (window.ProcessEvents()) {
@@ -238,6 +268,10 @@ auto main() -> int {
         g_bindless_data.set_camera_position(g_camera.position);
 
         // Add cubes and planes to be rendered.
+
+        // TODO: It is necessary for rendering skybox that the cube mesh is the
+        // 0-index mesh. This should be moved into a special constant region of
+        // the buffer.
         g_bindless_data.push_mesh(g_cube_mesh);
         g_bindless_data.push_mesh(g_plane_mesh);
         g_bindless_data.push_indices();
@@ -251,8 +285,7 @@ auto main() -> int {
         // clang-format off
         mesh_instance const cube_inst1 = {
             .position = {-1, 0, 0},
-            .rotation = glm::toQuat(glm::rotate(a, -rotation, {1, 1, 1}
-              )),
+            .rotation = glm::toQuat(glm::rotate(a, -rotation, {1, 1, 1})),
             .index_count =
                 static_cast<index_type>(g_cube_mesh.m_indices.size()),
         };

@@ -35,6 +35,8 @@ inline vku::ColorAttachmentImage g_id_image;
 inline vku::DepthStencilImage g_depth_image;
 
 inline ktxVulkanTexture g_ktx_skybox;
+inline vku::TextureImageCube g_skybox;
+inline vk::ImageView g_skybox_view;
 
 inline vk::Sampler g_nearest_neighbor_sampler;
 

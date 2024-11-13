@@ -69,6 +69,11 @@ add_custom_target(shaders
   COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/composite_vertex.spv -entry composite_vertex_main -O3 -Wno-39001 -emit-spirv-via-glsl
   # Compositing fragment shader for deferred rendering.
   COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/composite_fragment.spv -entry composite_fragment_main -O3 -Wno-39001 -emit-spirv-via-glsl
+  # Vertex shader for skybox.
+COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/skybox_vertex.spv -entry skybox_vertex_main -O3 -Wno-39001 -emit-spirv-via-glsl
+  # Fragment shader for skybox.
+  COMMAND slangc ${shaders} -o ${CMAKE_CURRENT_BINARY_DIR}/skybox_fragment.spv -entry skybox_fragment_main -O3 -Wno-39001 -emit-spirv-via-glsl
+
 )
 
 # Copy skybox texture next to executable.

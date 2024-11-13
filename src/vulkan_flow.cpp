@@ -137,15 +137,20 @@ void update_descriptors() {
         .image(g_nearest_neighbor_sampler, g_depth_image.imageView(),
                vk::ImageLayout::eDepthStencilReadOnlyOptimal);
 
-    if (!g_lights.light_maps.empty()) {
-        // Light depth textures.
-        dsu_camera.beginImages(2, 0, vk::DescriptorType::eCombinedImageSampler);
-        // Add every light-source to the light map bindings.
-        for (auto&& image : g_lights.light_maps) {
-            dsu_camera.image(g_nearest_neighbor_sampler, image.imageView(),
-                             vk::ImageLayout::eDepthStencilReadOnlyOptimal);
-        }
+    // Light depth textures.
+    assert(!g_lights.light_maps.empty());
+    dsu_camera.beginImages(2, 0, vk::DescriptorType::eCombinedImageSampler);
+
+    // Add every light-source to the light map bindings.
+    for (auto&& image : g_lights.light_maps) {
+        dsu_camera.image(g_nearest_neighbor_sampler, image.imageView(),
+                         vk::ImageLayout::eDepthStencilReadOnlyOptimal);
     }
+
+    // Add skybox texture.
+    dsu_camera.beginImages(3, 0, vk::DescriptorType::eCombinedImageSampler)
+        .image(g_nearest_neighbor_sampler, g_skybox_view,
+               vk::ImageLayout(g_ktx_skybox.imageLayout));
 
     dsu_camera.update(g_device);
     assert(dsu_camera.ok());
@@ -355,7 +360,8 @@ void draw_meshes(vk::CommandBuffer cmd) {
                         g_bindless_data.get_index_offset(),
                         vk::IndexType::eUint32);
 
-    // 16 is the byte offset of the instance count into the bindless buffer.
+    // 16 is the byte offset of the instance count scalar into the bindless
+    // buffer's base address.
     cmd.drawIndexedIndirectCount(g_device_local_buffer.buffer(),
                                  g_bindless_data.get_instance_commands_offset(),
                                  g_device_local_buffer.buffer(), 16,
@@ -363,7 +369,59 @@ void draw_meshes(vk::CommandBuffer cmd) {
                                  sizeof(vk::DrawIndexedIndirectCommand));
 }
 
+void draw_skybox(vk::CommandBuffer cmd) {
+    cmd.bindVertexBuffers(0, {g_device_local_buffer.buffer()},
+                          {g_bindless_data.vertices_offset});
+
+    cmd.bindIndexBuffer(g_device_local_buffer.buffer(),
+                        g_bindless_data.get_index_offset(),
+                        vk::IndexType::eUint32);
+
+    // The skybox cube has 36 indices.
+    cmd.drawIndexed(36, 1, 0, 0, 0);
+}
+
 void record_skybox(vk::CommandBuffer cmd) {
+    vk::Viewport viewport;
+    viewport.setWidth(game_width)
+        .setHeight(game_height)
+        .setX(0)
+        .setY(0)
+        .setMinDepth(0.f)
+        .setMaxDepth(1.f);
+    vk::Rect2D scissor;
+    scissor.setOffset({0, 0}).setExtent({game_width, game_height});
+    vk::Rect2D render_area;
+    render_area.setOffset({0, 0}).setExtent({game_width, game_height});
+
+    cmd.setCullMode(vk::CullModeFlagBits::eNone);
+    cmd.setViewportWithCount(1, &viewport);
+    cmd.setScissorWithCount(1, &scissor);
+
+    vk::RenderingAttachmentInfoKHR color_attachment_info;
+    color_attachment_info
+        .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
+        .setImageView(g_color_image.imageView())
+        .setLoadOp(vk::AttachmentLoadOp::eClear)
+        .setStoreOp(vk::AttachmentStoreOp::eStore);
+
+    vk::RenderingInfo rendering_info;
+    rendering_info.setRenderArea(render_area)
+        .setLayerCount(1)
+        .setColorAttachments(color_attachment_info);
+
+    g_color_image.setLayout(cmd, vk::ImageLayout::eColorAttachmentOptimal);
+
+    cmd.beginRendering(rendering_info);
+
+    set_all_render_state(cmd);
+
+    shader_objects.bind_vertex(cmd, 6);
+    shader_objects.bind_fragment(cmd, 7);
+
+    draw_skybox(cmd);
+
+    cmd.endRendering();
 }
 
 void record_rendering(vk::CommandBuffer cmd) {
@@ -384,10 +442,10 @@ void record_rendering(vk::CommandBuffer cmd) {
     cmd.setScissorWithCount(1, &scissor);
 
     vk::RenderingAttachmentInfoKHR color_attachment_info;
-    color_attachment_info.setClearValue(clear_color)
+    color_attachment_info
         .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
         .setImageView(g_color_image.imageView())
-        .setLoadOp(vk::AttachmentLoadOp::eClear)
+        .setLoadOp(vk::AttachmentLoadOp::eLoad)
         .setStoreOp(vk::AttachmentStoreOp::eStore);
 
     vk::RenderingAttachmentInfoKHR normal_attachment_info;
@@ -449,7 +507,6 @@ void record_rendering(vk::CommandBuffer cmd) {
     shader_objects.bind_vertex(cmd, 1);
     shader_objects.bind_fragment(cmd, 3);
 
-    // 16 is the byte offset of the instance count into the bindless buffer.
     draw_meshes(cmd);
 
     cmd.endRendering();

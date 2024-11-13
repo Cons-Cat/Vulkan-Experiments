@@ -10,6 +10,7 @@ void create_command_buffers();
 void create_sync_objects();
 void update_descriptors();
 void recreate_swapchain();
+void draw_skybox(vk::CommandBuffer cmd);
 void record_skybox(vk::CommandBuffer cmd);
 void render_and_present(unsigned);
 void record_rendering(vk::CommandBuffer cmd);

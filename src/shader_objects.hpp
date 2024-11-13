@@ -63,16 +63,19 @@ struct shader_objects_t {
     }
 
     void bind_compute(vk::CommandBuffer cmd, std::uint32_t index) {
+        assert(index < objects.size());
         auto compute_bit = vk::ShaderStageFlagBits::eCompute;
         cmd.bindShadersEXT(1, &compute_bit, &objects[index]);
     }
 
     void bind_vertex(vk::CommandBuffer cmd, std::uint32_t index) {
+        assert(index < objects.size());
         auto vertex_bit = vk::ShaderStageFlagBits::eVertex;
         cmd.bindShadersEXT(1, &vertex_bit, &objects[index]);
     }
 
     void bind_fragment(vk::CommandBuffer cmd, std::uint32_t index) {
+        assert(index < objects.size());
         auto fragment_bit = vk::ShaderStageFlagBits::eFragment;
         cmd.bindShadersEXT(1, &fragment_bit, &objects[index]);
     }
